@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-contract MLM is Initializable, OwnableUpgradeable {
+contract Registration is Initializable, OwnableUpgradeable {
 
     struct UserInfo {
         address referrer;
@@ -55,23 +55,35 @@ contract MLM is Initializable, OwnableUpgradeable {
     }
 
     function register(string memory referrerUniqueId) external {
-    // Use the provided referrerUniqueId as the referrer
-    string memory userUniqueId = getUniqueId(msg.sender);
-    address referrer = findReferrerByUniqueId(referrerUniqueId);
+        // Use the provided referrerUniqueId as the referrer
+        string memory userUniqueId = getUniqueId(msg.sender);
+        address referrer = findReferrerByUniqueId(referrerUniqueId);
 
-    require(allUsers[referrer].isRegistered || referrer == owner(), "Referrer not registered");
-    require(!allUsers[msg.sender].isRegistered, "User already registered");
+        require(allUsers[referrer].isRegistered || referrer == owner(), "Not registered");
+        require(!allUsers[msg.sender].isRegistered, "Already registered");
 
-    // Set the unique ID to the user's unique ID
-    allUsers[msg.sender].uniqueId = userUniqueId;
-    allUsers[msg.sender].referrer = referrer;
-    allUsers[msg.sender].isRegistered = true;
-    allUsers[referrer].referrals.push(msg.sender);
+        // Set the unique ID to the user's unique ID
+        allUsers[msg.sender].uniqueId = userUniqueId;
+        allUsers[msg.sender].referrer = referrer;
+        allUsers[msg.sender].isRegistered = true;
+        allUsers[referrer].referrals.push(msg.sender);
 
-    // Update the mapping with the user's address
-    userAddressByUniqueId[userUniqueId] = msg.sender;
+        // Update the mapping with the user's address
+        userAddressByUniqueId[userUniqueId] = msg.sender;
 
-    emit UserRegistered(msg.sender, referrer);
+        emit UserRegistered(msg.sender, referrer);
+    }
+
+    function registerOwner() external onlyOwner {
+        // Register the owner without providing a referrerUniqueId
+        string memory ownerUniqueId = getUniqueId(owner());
+        allUsers[owner()].uniqueId = ownerUniqueId;
+        allUsers[owner()].isRegistered = true;
+
+        // Update the mapping with the owner's address
+        userAddressByUniqueId[ownerUniqueId] = owner();
+
+        emit UserRegistered(owner(), address(0)); // address(0) is used as a placeholder for no referrer
     }
 
     function findReferrerByUniqueId(string memory referrerUniqueId) internal view returns (address) {
