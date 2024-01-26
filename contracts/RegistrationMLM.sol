@@ -74,7 +74,7 @@ contract Registration is Initializable, OwnableUpgradeable {
         emit UserRegistered(msg.sender, referrer);
     }
 
-    function registerByOwner() external {
+    function registerByOwner() external onlyOwner {
         string memory ownerUniqueId = getUniqueId(msg.sender);
         require(!allUsers[msg.sender].isRegistered, "Already registered");
 
