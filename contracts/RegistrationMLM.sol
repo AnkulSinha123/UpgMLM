@@ -22,7 +22,7 @@ contract Registration is Initializable, OwnableUpgradeable {
         __Ownable_init(initialOwner);
     }
 
-    function getUniqueId(address user) internal pure returns (string memory) {
+    function getUniqueId(address user) public pure returns (string memory) {
         uint256 addressValue = uint256(uint160(user)); // Explicitly convert address to uint256
 
         // Extract the last 10 digits of the address and convert to a string
@@ -74,17 +74,21 @@ contract Registration is Initializable, OwnableUpgradeable {
         emit UserRegistered(msg.sender, referrer);
     }
 
-    function registerOwner() external onlyOwner {
-        // Register the owner without providing a referrerUniqueId
-        string memory ownerUniqueId = getUniqueId(owner());
-        allUsers[owner()].uniqueId = ownerUniqueId;
-        allUsers[owner()].isRegistered = true;
+    function registerByOwner() external {
+        string memory ownerUniqueId = getUniqueId(msg.sender);
+        require(!allUsers[msg.sender].isRegistered, "Already registered");
 
-        // Update the mapping with the owner's address
-        userAddressByUniqueId[ownerUniqueId] = owner();
+        allUsers[msg.sender].uniqueId = ownerUniqueId;
+        allUsers[msg.sender].referrer = owner();
+        allUsers[msg.sender].isRegistered = true;
+        allUsers[owner()].referrals.push(msg.sender);
 
-        emit UserRegistered(owner(), address(0)); // address(0) is used as a placeholder for no referrer
+        // Update the mapping with the user's address
+        userAddressByUniqueId[ownerUniqueId] = msg.sender;
+
+        emit UserRegistered(msg.sender, address(0));
     }
+
 
     function findReferrerByUniqueId(string memory referrerUniqueId) internal view returns (address) {
         // Retrieve the address associated with the unique ID from the mapping

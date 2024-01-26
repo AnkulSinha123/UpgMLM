@@ -2,16 +2,16 @@ const hre = require("hardhat");
 
 async function main() {
   // Get the signer
-  const [deployer] = await ethers.getSigners();
+  const [deployer] = await hre.ethers.getSigners();
 
   // Deploy AddressStorage contract
-  const addressStorage = await hre.ethers.deployContract("AddressStorage");
+  const Registration = await hre.ethers.deployContract("AddressStorage");
   //const addressStorage = await AddressStorage.deploy();
 
   // Wait for the contract to be mined
-  await addressStorage.waitForDeployment();
+  await Registration.waitForDeployment();
 
-  console.log("AddressStorage deployed to:", addressStorage.target);
+  console.log("AddressStorage deployed to:", Registration.target);
 }
 
 // Execute the deployment script
