@@ -5,12 +5,11 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract Registration is Initializable, OwnableUpgradeable {
-
     struct UserInfo {
         address referrer;
         address[] referrals;
         bool isRegistered; // New field to track registration status
-        string uniqueId;   // New field to store unique ID
+        string uniqueId; // New field to store unique ID
     }
 
     mapping(address => UserInfo) public allUsers;
@@ -37,7 +36,7 @@ contract Registration is Initializable, OwnableUpgradeable {
 
         uint256 temp = value;
         uint256 digits;
-        
+
         while (temp != 0) {
             digits++;
             temp /= 10;
@@ -59,7 +58,10 @@ contract Registration is Initializable, OwnableUpgradeable {
         string memory userUniqueId = getUniqueId(msg.sender);
         address referrer = findReferrerByUniqueId(referrerUniqueId);
 
-        require(allUsers[referrer].isRegistered || referrer == owner(), "Not registered");
+        require(
+            allUsers[referrer].isRegistered || referrer == owner(),
+            "Not registered"
+        );
         require(!allUsers[msg.sender].isRegistered, "Already registered");
 
         // Set the unique ID to the user's unique ID
@@ -89,15 +91,25 @@ contract Registration is Initializable, OwnableUpgradeable {
         emit UserRegistered(msg.sender, address(0));
     }
 
-
-    function findReferrerByUniqueId(string memory referrerUniqueId) internal view returns (address) {
+    function findReferrerByUniqueId(string memory referrerUniqueId)
+        internal
+        view
+        returns (address)
+    {
         // Retrieve the address associated with the unique ID from the mapping
         address referrerAddress = userAddressByUniqueId[referrerUniqueId];
-        require(referrerAddress != address(0), "Referrer not found for the provided unique ID");
+        require(
+            referrerAddress != address(0),
+            "Referrer not found for the provided unique ID"
+        );
         return referrerAddress;
     }
 
-    function getReferrals(address user) external view returns (address[] memory) {
+    function getReferrals(address user)
+        external
+        view
+        returns (address[] memory)
+    {
         return allUsers[user].referrals;
     }
 }
