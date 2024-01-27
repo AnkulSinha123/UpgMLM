@@ -169,23 +169,49 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
     function setDistributionAddresses() internal {
         address userUpline = upline[msg.sender];
 
-        // If there is no upline, set it to the owner
+        // Iterate through uplines until a qualified upline is found for upline1
+        while (userUpline != address(0)) {
+            if (userPackages[userUpline] >= userPackages[msg.sender]) {
+                break; // Found a qualified upline
+            }
+
+            userUpline = upline[userUpline]; // Move up to the next upline
+        }
+
+        // If no qualified upline is found, set it to the contract owner
         if (userUpline == address(0)) {
             userUpline = payable(owner());
         }
 
         upline1 = payable(userUpline);
-        upline2 = payable(upline[userUpline]);
 
-        if (upline2 == address(0)) upline2 = payable(owner());
-        upline3 = payable(upline[upline2]);
+        // Iterate through uplines to find qualified upline for upline2
+        for (uint256 i = 0; i < 4; i++) {
+            userUpline = upline[upline1];
 
-        if (upline3 == address(0)) upline3 = payable(owner());
-        upline4 = payable(upline[upline3]);
+            // Iterate through uplines until a qualified upline is found
+            while (userUpline != address(0)) {
+                if (userPackages[userUpline] >= userPackages[msg.sender]) {
+                    break; // Found a qualified upline
+                }
 
-        if (upline4 == address(0)) upline4 = payable(owner());
-        upline5 = payable(upline[upline4]);
+                userUpline = upline[userUpline]; // Move up to the next upline
+            }
 
-        if (upline5 == address(0)) upline5 = payable(owner());
+            // If no qualified upline is found, set it to the contract owner
+            if (userUpline == address(0)) {
+                userUpline = payable(owner());
+            }
+
+            if (i == 0) {
+                upline2 = payable(userUpline);
+            } else if (i == 1) {
+                upline3 = payable(userUpline);
+            } else if (i == 2) {
+                upline4 = payable(userUpline);
+            } else if (i == 3) {
+                upline5 = payable(userUpline);
+            }
+}
     }
 }
