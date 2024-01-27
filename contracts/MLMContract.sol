@@ -6,9 +6,6 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
-    // USDT token address
-    address public usdtToken;
-
     uint256[] public packagePrices;
     mapping(address => uint256) public userPackages;
     mapping(address => address) public upline; // Mapping to store upline for each user
@@ -19,7 +16,10 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
         uint256 packageIndex,
         uint256 price
     );
-    
+
+    // USDT token address
+    address public usdtToken;
+
     // Declare payable addresses for upline
     address payable public upline1;
     address payable public upline2;
@@ -34,31 +34,33 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
     uint256 private constant upline4_PERCENTAGE = 10;
     uint256 private constant upline5_PERCENTAGE = 10;
 
-    function initialize(address initialOwner, address _usdtToken)
-        external
-        initializer
-    {
+    function initialize(address initialOwner, address _usdtToken) external initializer {
         __Ownable_init(initialOwner);
         usdtToken = _usdtToken;
 
-        packagePrices.push(5 * 10**6); // 5 USDT
-        packagePrices.push(8 * 10**6); // 8 USDT
-        packagePrices.push(14 * 10**6); // 14 USDT
-        packagePrices.push(28 * 10**6); // 28 USDT
-        packagePrices.push(50 * 10**6); // 50 USDT
-        packagePrices.push(98 * 10**6); // 98 USDT
-        packagePrices.push(194 * 10**6); // 194 USDT
-        packagePrices.push(386 * 10**6); // 386 USDT
-        packagePrices.push(770 * 10**6); // 770 USDT
-        packagePrices.push(1538 * 10**6); // 1538 USDT
-        packagePrices.push(3072 * 10**6); // 3072 USDT
-        packagePrices.push(6146 * 10**6); // 6146 USDT
+        packagePrices.push(5 * 10**6);     // 5 USDT
+        packagePrices.push(8 * 10**6);     // 8 USDT
+        packagePrices.push(14 * 10**6);    // 14 USDT
+        packagePrices.push(28 * 10**6);    // 28 USDT
+        packagePrices.push(50 * 10**6);    // 50 USDT
+        packagePrices.push(98 * 10**6);    // 98 USDT
+        packagePrices.push(194 * 10**6);   // 194 USDT
+        packagePrices.push(386 * 10**6);   // 386 USDT
+        packagePrices.push(770 * 10**6);   // 770 USDT
+        packagePrices.push(1538 * 10**6);  // 1538 USDT
+        packagePrices.push(3072 * 10**6);  // 3072 USDT
+        packagePrices.push(6146 * 10**6);  // 6146 USDT
     }
 
     receive() external payable {}
 
-    function purchasePackage(uint256 packageIndex) external payable {
+    function purchasePackage(uint256 packageIndex, address upline1Address)
+        external
+        payable
+    {
         require(packageIndex < packagePrices.length, "Invalid package index");
+        //require(isValidUpline(msg.sender, upline1Address), "Invalid upline1 address");
+
         uint256 currentPackageIndex = userPackages[msg.sender];
 
         // Check if the user has any existing package or if they are purchasing the next package in sequence
@@ -81,6 +83,28 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
 
         // Distribute the remaining amount among upline and downlines
         distribution(packagePrice - 2 * 10**6);
+
+        // Update upline and downlines mappings
+        address currentUpline = upline[msg.sender];
+        upline[msg.sender] = upline1Address;
+
+        // Add the user to the downlines of their upline
+        downlines[upline1Address].push(msg.sender);
+
+        // Remove the user from the downlines of their previous upline
+        if (currentUpline != address(0)) {
+            address[] storage previousDownlines = downlines[currentUpline];
+            for (uint256 i = 0; i < previousDownlines.length; i++) {
+                if (previousDownlines[i] == msg.sender) {
+                    // Swap with the last element and pop to remove the user
+                    previousDownlines[i] = previousDownlines[
+                        previousDownlines.length - 1
+                    ];
+                    previousDownlines.pop();
+                    break;
+                }
+            }
+        }
 
         userPackages[msg.sender] = packageIndex;
 
