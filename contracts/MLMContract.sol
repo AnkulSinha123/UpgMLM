@@ -17,9 +17,6 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
         uint256 price
     );
 
-    // USDT token address
-    address public usdtToken;
-
     // Declare payable addresses for upline
     address payable public upline1;
     address payable public upline2;
@@ -34,35 +31,61 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
     uint256 private constant upline4_PERCENTAGE = 10;
     uint256 private constant upline5_PERCENTAGE = 10;
 
-    function initialize(address initialOwner, address _usdtToken)
-        external
-        initializer
-    {
+    address public usdtToken; // USDT token address
+
+    function initialize(address initialOwner, address _usdtToken) external initializer {
         __Ownable_init(initialOwner);
         usdtToken = _usdtToken;
 
-        packagePrices.push(5 * 10**6); // 5 USDT
-        packagePrices.push(8 * 10**6); // 8 USDT
-        packagePrices.push(14 * 10**6); // 14 USDT
-        packagePrices.push(28 * 10**6); // 28 USDT
-        packagePrices.push(50 * 10**6); // 50 USDT
-        packagePrices.push(98 * 10**6); // 98 USDT
-        packagePrices.push(194 * 10**6); // 194 USDT
-        packagePrices.push(386 * 10**6); // 386 USDT
-        packagePrices.push(770 * 10**6); // 770 USDT
-        packagePrices.push(1538 * 10**6); // 1538 USDT
-        packagePrices.push(3072 * 10**6); // 3072 USDT
-        packagePrices.push(6146 * 10**6); // 6146 USDT
+        packagePrices.push(5 * 10**6);     // 5 USDT
+        packagePrices.push(8 * 10**6);     // 8 USDT
+        packagePrices.push(14 * 10**6);    // 14 USDT
+        packagePrices.push(28 * 10**6);    // 28 USDT
+        packagePrices.push(50 * 10**6);    // 50 USDT
+        packagePrices.push(98 * 10**6);    // 98 USDT
+        packagePrices.push(194 * 10**6);   // 194 USDT
+        packagePrices.push(386 * 10**6);   // 386 USDT
+        packagePrices.push(770 * 10**6);   // 770 USDT
+        packagePrices.push(1538 * 10**6);  // 1538 USDT
+        packagePrices.push(3072 * 10**6);  // 3072 USDT
+        packagePrices.push(6146 * 10**6);  // 6146 USDT
+
+        // Set initial upline addresses
+        upline1 = payable(owner());
+        upline2 = payable(owner());
+        upline3 = payable(owner());
+        upline4 = payable(owner());
+        upline5 = payable(owner());
     }
 
     receive() external payable {}
 
-    function purchasePackage(uint256 packageIndex, address upline1Address)
-        external
-        payable
-    {
+    function updateAndSetDistributionAddresses(address currentUpline) internal {
+        address userUpline = currentUpline;
+
+        // Iterate through uplines until a qualified upline is found
+        while (userUpline != address(0)) {
+            if (userPackages[userUpline] >= userPackages[msg.sender]) {
+                break; // Found a qualified upline
+            }
+
+            userUpline = upline[userUpline]; // Move up to the next upline
+        }
+
+        // If no qualified upline is found, set it to the contract owner
+        if (userUpline == address(0)) {
+            userUpline = payable(owner());
+        }
+
+        // Set uplines 2 to 5
+        upline2 = payable(userUpline);
+        upline3 = payable(upline[userUpline]);
+        upline4 = payable(upline[upline3]);
+        upline5 = payable(upline[upline4]);
+    }
+
+    function purchasePackage(uint256 packageIndex, address upline1Address) external payable {
         require(packageIndex < packagePrices.length, "Invalid package index");
-        //require(isValidUpline(msg.sender, upline1Address), "Invalid upline1 address");
 
         uint256 currentPackageIndex = userPackages[msg.sender];
 
@@ -78,15 +101,6 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
             "Insufficient ETH sent for package purchase"
         );
 
-        // Set upline addresses
-        setDistributionAddresses();
-
-        // Distribute 2 USDT among levels 1 to 5 (deducted from the package price)
-        distribute2USDT();
-
-        // Distribute the remaining amount among upline and downlines
-        distribution(packagePrice - 2 * 10**6);
-
         // Update upline and downlines mappings
         address currentUpline = upline[msg.sender];
         upline[msg.sender] = upline1Address;
@@ -94,15 +108,22 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
         // Add the user to the downlines of their upline
         downlines[upline1Address].push(msg.sender);
 
+        // Set upline addresses
+        updateAndSetDistributionAddresses(upline1Address);
+
+        // Distribute 2 ETH among levels 1 to 5 (deducted from the package price)
+        distribute2USDT();
+
+        // Distribute the remaining amount among upline and downlines
+        distribution(packagePrice - 2 * 10**6);
+
         // Remove the user from the downlines of their previous upline
         if (currentUpline != address(0)) {
             address[] storage previousDownlines = downlines[currentUpline];
             for (uint256 i = 0; i < previousDownlines.length; i++) {
                 if (previousDownlines[i] == msg.sender) {
                     // Swap with the last element and pop to remove the user
-                    previousDownlines[i] = previousDownlines[
-                        previousDownlines.length - 1
-                    ];
+                    previousDownlines[i] = previousDownlines[previousDownlines.length - 1];
                     previousDownlines.pop();
                     break;
                 }
@@ -144,7 +165,10 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
         uint256 amountUpline = remainingPackageAmount / 2;
 
         // Transfer USDT to upline addresses
-        IERC20(usdtToken).transfer(upline1, amountUpline);
+        IERC20(usdtToken).transfer(
+            upline1,
+            amountUpline
+        );
         IERC20(usdtToken).transfer(
             upline2,
             remainingPackageAmount - amountUpline
@@ -153,68 +177,5 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
 
     function getUserPackage(address user) external view returns (uint256) {
         return userPackages[user];
-    }
-
-    function setUplineAddresses(address _upline, address[] calldata _downlines)
-        external
-    {
-        require(_upline != address(0), "Invalid upline address");
-        require(_downlines.length <= 4, "Exceeds maximum allowed downlines");
-
-        upline[msg.sender] = _upline;
-        downlines[msg.sender] = _downlines;
-    }
-
-    function withdrawETH(uint256 amount) external {
-        payable(owner()).transfer(amount);
-    }
-
-    function setDistributionAddresses() public {
-        address upline1 = upline[msg.sender];
-
-        // Iterate through uplines until a qualified upline is found for upline1
-        while (upline1 != address(0)) {
-            if (userPackages[upline1] >= userPackages[msg.sender]) {
-                break; // Found a qualified upline
-            }
-
-            upline1 = upline[upline1]; // Move up to the next upline
-        }
-
-        // If no qualified upline is found, set it to the contract owner
-        if (upline1 == address(0)) {
-            upline1 = payable(owner());
-        }
-
-        upline1 = payable(upline1);
-
-        // Iterate through uplines to find qualified upline for upline2
-        for (uint256 i = 0; i < 4; i++) {
-            upline1 = upline[upline1];
-
-            // Iterate through uplines until a qualified upline is found
-            while (upline1 != address(0)) {
-                if (userPackages[upline1] >= userPackages[msg.sender]) {
-                    break; // Found a qualified upline
-                }
-
-                upline1 = upline[upline1]; // Move up to the next upline
-            }
-
-            // If no qualified upline is found, set it to the contract owner
-            if (upline1 == address(0)) {
-                upline1 = payable(owner());
-            }
-
-            if (i == 0) {
-                upline2 = payable(owner());
-            } else if (i == 1) {
-                upline3 = payable(owner());
-            } else if (i == 2) {
-                upline4 = payable(owner());
-            } else if (i == 3) {
-                upline5 = payable(owner());
-            }
-        }
     }
 }
