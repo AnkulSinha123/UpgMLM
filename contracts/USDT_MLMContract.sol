@@ -5,11 +5,12 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
+contract USDT_MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
     uint256[] public packagePrices;
     mapping(address => uint256) public userPackages;
     mapping(address => address) public upline; // Mapping to store upline for each user
     mapping(address => address[]) public downlines; // Mapping to store downlines for each user
+    mapping(address => address[]) public secondLayerDownlines; // Mapping to store second layer downlines for each user
 
     event PackagePurchased(
         address indexed user,
@@ -24,6 +25,8 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
     address payable public upline4;
     address payable public upline5;
 
+    address payable public RoyaltyBonus;
+
     // Constants for distribution percentages
     uint256 private constant upline1_PERCENTAGE = 40;
     uint256 private constant upline2_PERCENTAGE = 25;
@@ -33,7 +36,10 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
 
     address public usdtToken; // USDT token address
 
-    function initialize(address initialOwner, address _usdtToken) external initializer {
+    function initialize(address initialOwner,address _usdtToken,address _royalty)
+        external
+        initializer
+    {
         __Ownable_init(initialOwner);
         usdtToken = _usdtToken;
 
@@ -56,6 +62,8 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
         upline3 = payable(owner());
         upline4 = payable(owner());
         upline5 = payable(owner());
+
+        RoyaltyBonus = payable(_royalty);
     }
 
     receive() external payable {}
@@ -84,7 +92,10 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
         upline5 = payable(upline[upline4]);
     }
 
-    function purchasePackage(uint256 packageIndex, address upline1Address) external payable {
+    function purchasePackage(uint256 packageIndex, address upline1Address)
+        external
+        payable
+    {
         require(packageIndex < packagePrices.length, "Invalid package index");
 
         uint256 currentPackageIndex = userPackages[msg.sender];
@@ -105,8 +116,13 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
         address currentUpline = upline[msg.sender];
         upline[msg.sender] = upline1Address;
 
-        // Add the user to the downlines of their upline
-        downlines[upline1Address].push(msg.sender);
+        // If the user doesn't have four direct downlines, add them to direct downlines
+        if (downlines[upline1Address].length < 4) {
+            downlines[upline1Address].push(msg.sender);
+        } else {
+            // Otherwise, add them to second layer downlines
+            secondLayerDownlines[upline1Address].push(msg.sender);
+        }
 
         // Set upline addresses
         updateAndSetDistributionAddresses(upline1Address);
@@ -115,7 +131,7 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
         distribute2USDT();
 
         // Distribute the remaining amount among upline and downlines
-        distribution(packagePrice - 2 * 10**6);
+        distribution(packagePrice - 2 ether);
 
         // Remove the user from the downlines of their previous upline
         if (currentUpline != address(0)) {
@@ -123,7 +139,9 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
             for (uint256 i = 0; i < previousDownlines.length; i++) {
                 if (previousDownlines[i] == msg.sender) {
                     // Swap with the last element and pop to remove the user
-                    previousDownlines[i] = previousDownlines[previousDownlines.length - 1];
+                    previousDownlines[i] = previousDownlines[
+                        previousDownlines.length - 1
+                    ];
                     previousDownlines.pop();
                     break;
                 }
@@ -131,6 +149,18 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
         }
 
         userPackages[msg.sender] = packageIndex;
+
+        // Add the user to the second layer downlines of their upline
+        if (upline[upline1Address] != address(0)) {
+            secondLayerDownlines[upline[upline1Address]].push(msg.sender);
+
+            // Check if the secondLayerDownlines count reaches 16
+            if (secondLayerDownlines[upline[upline1Address]].length == 16) {
+                // Clear downlines and secondLayerDownlines for the upline
+                clearDownlines(upline[upline1Address]);
+                clearSecondLayerDownlines(upline[upline1Address]);
+            }
+        }
 
         emit PackagePurchased(msg.sender, packageIndex, packagePrice);
     }
@@ -169,13 +199,57 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
             upline1,
             amountUpline
         );
-        IERC20(usdtToken).transfer(
-            upline2,
-            remainingPackageAmount - amountUpline
-        );
+
+        address[] storage secondLayer = secondLayerDownlines[upline2];
+        uint256 i = secondLayer.length;
+
+        // Assuming secondLayer has at least 16 elements
+       if (secondLayer.length >= 16) {
+            if (1 <= i && i <= 3) {
+                IERC20(usdtToken).transfer(RoyaltyBonus, remainingPackageAmount - amountUpline);
+            } else if (4 <= i && i <= 14) {
+                IERC20(usdtToken).transfer(upline2, remainingPackageAmount - amountUpline);
+            } else if (15 <= i && i <= 16) {
+                IERC20(usdtToken).transfer(upline1, (remainingPackageAmount - amountUpline) / 2);
+                IERC20(usdtToken).transfer(upline2, (remainingPackageAmount - amountUpline) / 2);
+            }
+        }
     }
 
     function getUserPackage(address user) external view returns (uint256) {
         return userPackages[user];
+    }
+
+    function getSecondLayerDownlines(address user)
+        external
+        view
+        returns (address[] memory)
+    {
+        return secondLayerDownlines[user];
+    }
+
+    function clearDownlines(address uplineAddress) internal onlyOwner {
+        // Clear downlines for the specified upline
+        delete downlines[uplineAddress];
+
+        // Clear userPackages for downlines of the specified upline
+        address[] storage directDownlines = downlines[uplineAddress];
+        for (uint256 i = 0; i < directDownlines.length; i++) {
+            delete userPackages[directDownlines[i]];
+        }
+    }
+
+    function clearSecondLayerDownlines(address uplineAddress)
+        internal
+        onlyOwner
+    {
+        // Clear secondLayerDownlines for the specified upline
+        delete secondLayerDownlines[uplineAddress];
+
+        // Clear userPackages for secondLayerDownlines of the specified upline
+        address[] storage secondLayer = secondLayerDownlines[uplineAddress];
+        for (uint256 i = 0; i < secondLayer.length; i++) {
+            delete userPackages[secondLayer[i]];
+        }
     }
 }
