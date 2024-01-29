@@ -1,3 +1,4 @@
+//. 5000000000000000000
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
@@ -82,9 +83,10 @@ contract Ether_MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeabl
             userUpline = payable(owner());
         }
 
-        // Set uplines 2 to 5
-        upline2 = payable(userUpline);
-        upline3 = payable(upline[userUpline]);
+        // Set uplines 1 to 5
+        upline1 = payable(userUpline);
+        upline2 = payable(upline[upline1]);
+        upline3 = payable(upline[upline2]);
         upline4 = payable(upline[upline3]);
         upline5 = payable(upline[upline4]);
     }

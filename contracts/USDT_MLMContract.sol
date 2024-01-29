@@ -117,7 +117,7 @@ contract USDT_MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable
         address currentUpline = upline[msg.sender];
         upline[msg.sender] = upline1Address;
 
-         //Upline must have less than four direct downlines
+        //Upline must have less than four direct downlines
         require(downlines[upline1Address].length < 4, "Already 4 downlines") ;
         downlines[upline1Address].push(msg.sender);
 
