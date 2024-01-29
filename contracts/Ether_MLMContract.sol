@@ -5,7 +5,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
+contract Ether_MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
     uint256[] public packagePrices;
     mapping(address => uint256) public userPackages;
     mapping(address => address) public upline; // Mapping to store upline for each user
@@ -113,13 +113,9 @@ contract MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable {
         address currentUpline = upline[msg.sender];
         upline[msg.sender] = upline1Address;
 
-        // If the user doesn't have four direct downlines, add them to direct downlines
-        if (downlines[upline1Address].length < 4) {
-            downlines[upline1Address].push(msg.sender);
-        } else {
-            // Otherwise, add them to second layer downlines
-            secondLayerDownlines[upline1Address].push(msg.sender);
-        }
+        //Upline must have less than four direct downlines
+        require(downlines[upline1Address].length < 4, "Already 4 downlines") ;
+        downlines[upline1Address].push(msg.sender);
 
         // Set upline addresses
         updateAndSetDistributionAddresses(upline1Address);

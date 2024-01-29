@@ -85,9 +85,10 @@ contract USDT_MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable
             userUpline = payable(owner());
         }
 
-        // Set uplines 2 to 5
-        upline2 = payable(userUpline);
-        upline3 = payable(upline[userUpline]);
+        // Set uplines 1 to 5
+        upline1 = payable(userUpline);
+        upline2 = payable(upline[upline1]);
+        upline3 = payable(upline[upline2]);
         upline4 = payable(upline[upline3]);
         upline5 = payable(upline[upline4]);
     }
@@ -116,13 +117,9 @@ contract USDT_MLMContract is Initializable, OwnableUpgradeable, ERC20Upgradeable
         address currentUpline = upline[msg.sender];
         upline[msg.sender] = upline1Address;
 
-        // If the user doesn't have four direct downlines, add them to direct downlines
-        if (downlines[upline1Address].length < 4) {
-            downlines[upline1Address].push(msg.sender);
-        } else {
-            // Otherwise, add them to second layer downlines
-            secondLayerDownlines[upline1Address].push(msg.sender);
-        }
+         //Upline must have less than four direct downlines
+        require(downlines[upline1Address].length < 4, "Already 4 downlines") ;
+        downlines[upline1Address].push(msg.sender);
 
         // Set upline addresses
         updateAndSetDistributionAddresses(upline1Address);
