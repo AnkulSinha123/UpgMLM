@@ -1,8 +1,3 @@
-//5000000000000000000
-//0x0A098Eda01Ce92ff4A4CCb7A4fFFb5A43EBC70DC
-//0x14723A09ACff6D2A60DcdF7aA4AFf308FDDC160C. //0Pack
-//0x617F2E2fD72FD9D5503197092aC168c91465E7f2 //0pack
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
@@ -10,7 +5,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract Ether_MLMContract is
+contract Ether_Pro_Power_Matrix is
     Initializable,
     OwnableUpgradeable,
     ERC20Upgradeable
@@ -126,7 +121,6 @@ contract Ether_MLMContract is
         }
     }
 
-    // Modify the purchasePackage function to check the limits
     function purchasePackage(uint256 packageIndex, address upline1Address)
         external
         payable
@@ -192,7 +186,30 @@ contract Ether_MLMContract is
         distribute2ETH();
 
         // Distribute the remaining amount among upline and downlines
-        distribution(packagePrice - 2 ether, packageIndex);
+        uint256 remainingAmount = packagePrice - 2 ether;
+
+        // Transfer ETH to upline1
+        payable(upline1).transfer(remainingAmount / 2);
+
+        address[] storage secondLayer = secondLayerDownlines[packageIndex][
+            upline2
+        ];
+        uint256 i = secondLayer.length;
+
+        // Assuming secondLayer has at least 16 elements
+        if (secondLayer.length >= 16) {
+            if (1 <= i && i <= 3) {
+                // Distribute to RoyaltyContract for the first 3 downlines
+                payable(RoyaltyContract).transfer(remainingAmount / 2);
+            } else if (4 <= i && i <= 14) {
+                // Distribute to upline2 for downlines 4 to 13
+                payable(upline2).transfer(remainingAmount / 2);
+            } else if (15 <= i && i <= 16) {
+                // Distribute to upline1 and upline2 for downlines 14 and 15
+                payable(upline1).transfer(remainingAmount / 4);
+                payable(upline2).transfer(remainingAmount / 4);
+            }
+        }
 
         // Remove the user from the downlines of their previous upline
         userPackages[msg.sender] = packageIndex;
@@ -216,7 +233,7 @@ contract Ether_MLMContract is
         emit PackagePurchased(msg.sender, packageIndex, packagePrice);
     }
 
-    function distribute2ETH() public {
+    function distribute2ETH() public payable {
         uint256 ethToDistribute = 2 ether; // 2 ETH
 
         // Transfer ETH to levels
@@ -225,44 +242,6 @@ contract Ether_MLMContract is
         payable(upline3).transfer((ethToDistribute * upline3_PERCENTAGE) / 100);
         payable(upline4).transfer((ethToDistribute * upline4_PERCENTAGE) / 100);
         payable(upline5).transfer((ethToDistribute * upline5_PERCENTAGE) / 100);
-    }
-
-    function distribution(uint256 remainingPackageAmount, uint256 packageIndex)
-        internal
-    {
-        uint256 amountUpline = remainingPackageAmount / 2;
-
-        // Transfer ETH to upline1
-        payable(upline1).transfer(amountUpline);
-
-        address[] storage secondLayer = secondLayerDownlines[packageIndex][
-            upline2
-        ];
-
-        uint256 i = secondLayer.length;
-
-        // Assuming secondLayer has at least 16 elements
-        if (secondLayer.length >= 16) {
-            if (1 <= i && i <= 3) {
-                // Distribute to RoyaltyContract for the first 3 downlines
-                payable(RoyaltyContract).transfer(
-                    remainingPackageAmount - amountUpline
-                );
-            } else if (4 <= i && i <= 14) {
-                // Distribute to upline2 for downlines 4 to 13
-                payable(upline2).transfer(
-                    remainingPackageAmount - amountUpline
-                );
-            } else if (15 <= i && i <= 16) {
-                // Distribute to upline1 and upline2 for downlines 14 and 15
-                payable(upline1).transfer(
-                    (remainingPackageAmount - amountUpline) / 2
-                );
-                payable(upline2).transfer(
-                    (remainingPackageAmount - amountUpline) / 2
-                );
-            }
-        }
     }
 
     function getUserPackage(address user) external view returns (uint256) {
