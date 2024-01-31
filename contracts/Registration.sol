@@ -111,7 +111,6 @@ contract Registration is Initializable, OwnableUpgradeable {
         return allUsers[user].referrals;
     }
 
-
     function getTotalAddressesJoined(address user)
         external
         view
@@ -162,14 +161,31 @@ contract Registration is Initializable, OwnableUpgradeable {
         return newArray;
     }
 
-    function getReferralsByLevel(address user, uint256 level)
-        external
-        view
-        returns (address[] memory)
-    {
+    function getReferralsByLevel(address user, uint256 level) external returns (address[] memory) {
         require(level > 0 && level <= 5, "Invalid level");
 
-        address[] memory referrals;
+        // Get referrals at the specified level
+        address[] memory referrals = getReferralsAtLevel(user, level);
+
+        // Clear data for levels lower than the requested level
+        clearDataForLowerLevels(user, level);
+
+        return referrals;
+    }
+
+    function clearDataForLowerLevels(address user, uint256 level) internal {
+    UserInfo storage userInfo = allUsers[user];
+
+    // Clear data for levels lower than the requested level
+    for (uint256 i = 1; i < level; i++) {
+        user = userInfo.referrer;
+        userInfo = allUsers[user];
+        userInfo.levels = new address[](0);
+    }
+}
+
+
+    function getReferralsAtLevel(address user, uint256 level) internal view returns (address[] memory) {
         address[] memory currentLevelReferrals = allUsers[user].referrals;
 
         for (uint256 i = 1; i < level; i++) {
@@ -179,11 +195,7 @@ contract Registration is Initializable, OwnableUpgradeable {
         return currentLevelReferrals;
     }
 
-    function getNextLevelReferrals(address[] memory users)
-        internal
-        view
-        returns (address[] memory)
-    {
+    function getNextLevelReferrals(address[] memory users) internal view returns (address[] memory) {
         address[] memory nextLevelReferrals;
 
         for (uint256 i = 0; i < users.length; i++) {
@@ -195,81 +207,7 @@ contract Registration is Initializable, OwnableUpgradeable {
         return nextLevelReferrals;
     }
 
-    function getDirectReferrals(address user)
-        internal
-        view
-        returns (address[] memory)
-    {
+    function getDirectReferrals(address user) internal view returns (address[] memory) {
         return allUsers[user].referrals;
     }
-
-
-    //     function getReferralsByLevel(address user, uint256 level)
-    //     external
-    //     view
-    //     returns (address[] memory)
-    // {
-    //     require(level > 0 && level <= 5, "Invalid level");
-
-    //     address[] memory referrals;
-    //     address[] memory currentLevelReferrals = allUsers[user].referrals;
-
-    //     for (uint256 i = 1; i < level; i++) {
-    //         currentLevelReferrals = getNextLevelReferrals(currentLevelReferrals);
-    //     }
-
-    //     return currentLevelReferrals;
-    // }
-
-    // function getNextLevelReferrals(address[] memory users)
-    //     internal
-    //     view
-    //     returns (address[] memory)
-    // {
-    //     address[] memory nextLevelReferrals;
-
-    //     for (uint256 i = 0; i < users.length; i++) {
-    //         address[] memory currentLevelReferrals = allUsers[users[i]].referrals;
-
-    //         nextLevelReferrals = appendToArray(nextLevelReferrals, currentLevelReferrals);
-    //     }
-
-    //     return nextLevelReferrals;
-    // }
-
-
-    // function getReferralsByLevel(address user, uint256 level)
-    //     external
-    //     view
-    //     returns (address[] memory)
-    // {
-    //     require(level > 0 && level <= 5, "Invalid level");
-
-    //     address[] memory referrals;
-    //     address[] memory currentLevelReferrals = allUsers[user].referrals;
-
-    //     for (uint256 i = 1; i < level; i++) {
-    //         referrals = currentLevelReferrals;
-
-    //         currentLevelReferrals = getNextLevelReferrals(referrals);
-    //     }
-
-    //     return currentLevelReferrals;
-    // }
-
-    // function getNextLevelReferrals(address[] memory users)
-    //     internal
-    //     view
-    //     returns (address[] memory)
-    // {
-    //     address[] memory nextLevelReferrals;
-
-    //     for (uint256 i = 0; i < users.length; i++) {
-    //         address[] memory currentLevelReferrals = allUsers[users[i]].referrals;
-
-    //         nextLevelReferrals = appendToArray(nextLevelReferrals, currentLevelReferrals);
-    //     }
-
-    //     return nextLevelReferrals;
-    // }
 }
