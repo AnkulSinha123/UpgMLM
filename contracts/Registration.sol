@@ -111,57 +111,6 @@ contract Registration is Initializable, OwnableUpgradeable {
         return allUsers[user].referrals;
     }
 
-    function getLevelsByUniqueId(address user, uint256 level)
-        external
-        view
-        returns (string[] memory)
-    {
-        address[] memory levels = allUsers[user].levels;
-
-        require(level > 0 && level <= 5, "Invalid level");
-
-        string[] memory uniqueIds;
-
-        for (uint256 i = 0; i < levels.length; i++) {
-            address[] memory currentLevel = allUsers[levels[i]].levels;
-
-            if (level == 1) {
-                // Level 1 is the direct referrals
-                uniqueIds = appendToStringArray(
-                    uniqueIds,
-                    getUniqueId(levels[i])
-                );
-            } else {
-                // Traverse through the levels to find the desired level
-                for (
-                    uint256 j = 2;
-                    j <= level && currentLevel.length > 0;
-                    j++
-                ) {
-                    address[] memory nextLevel;
-                    for (uint256 k = 0; k < currentLevel.length; k++) {
-                        nextLevel = appendToArray(
-                            nextLevel,
-                            allUsers[currentLevel[k]].levels
-                        );
-                    }
-
-                    if (j == level) {
-                        for (uint256 k = 0; k < nextLevel.length; k++) {
-                            uniqueIds = appendToStringArray(
-                                uniqueIds,
-                                getUniqueId(nextLevel[k])
-                            );
-                        }
-                    }
-
-                    currentLevel = nextLevel;
-                }
-            }
-        }
-
-        return uniqueIds;
-    }
 
     function getTotalAddressesJoined(address user)
         external
@@ -212,4 +161,115 @@ contract Registration is Initializable, OwnableUpgradeable {
         newArray[array.length] = element;
         return newArray;
     }
+
+    function getReferralsByLevel(address user, uint256 level)
+        external
+        view
+        returns (address[] memory)
+    {
+        require(level > 0 && level <= 5, "Invalid level");
+
+        address[] memory referrals;
+        address[] memory currentLevelReferrals = allUsers[user].referrals;
+
+        for (uint256 i = 1; i < level; i++) {
+            currentLevelReferrals = getNextLevelReferrals(currentLevelReferrals);
+        }
+
+        return currentLevelReferrals;
+    }
+
+    function getNextLevelReferrals(address[] memory users)
+        internal
+        view
+        returns (address[] memory)
+    {
+        address[] memory nextLevelReferrals;
+
+        for (uint256 i = 0; i < users.length; i++) {
+            address[] memory currentLevelReferrals = getDirectReferrals(users[i]);
+
+            nextLevelReferrals = appendToArray(nextLevelReferrals, currentLevelReferrals);
+        }
+
+        return nextLevelReferrals;
+    }
+
+    function getDirectReferrals(address user)
+        internal
+        view
+        returns (address[] memory)
+    {
+        return allUsers[user].referrals;
+    }
+
+
+    //     function getReferralsByLevel(address user, uint256 level)
+    //     external
+    //     view
+    //     returns (address[] memory)
+    // {
+    //     require(level > 0 && level <= 5, "Invalid level");
+
+    //     address[] memory referrals;
+    //     address[] memory currentLevelReferrals = allUsers[user].referrals;
+
+    //     for (uint256 i = 1; i < level; i++) {
+    //         currentLevelReferrals = getNextLevelReferrals(currentLevelReferrals);
+    //     }
+
+    //     return currentLevelReferrals;
+    // }
+
+    // function getNextLevelReferrals(address[] memory users)
+    //     internal
+    //     view
+    //     returns (address[] memory)
+    // {
+    //     address[] memory nextLevelReferrals;
+
+    //     for (uint256 i = 0; i < users.length; i++) {
+    //         address[] memory currentLevelReferrals = allUsers[users[i]].referrals;
+
+    //         nextLevelReferrals = appendToArray(nextLevelReferrals, currentLevelReferrals);
+    //     }
+
+    //     return nextLevelReferrals;
+    // }
+
+
+    // function getReferralsByLevel(address user, uint256 level)
+    //     external
+    //     view
+    //     returns (address[] memory)
+    // {
+    //     require(level > 0 && level <= 5, "Invalid level");
+
+    //     address[] memory referrals;
+    //     address[] memory currentLevelReferrals = allUsers[user].referrals;
+
+    //     for (uint256 i = 1; i < level; i++) {
+    //         referrals = currentLevelReferrals;
+
+    //         currentLevelReferrals = getNextLevelReferrals(referrals);
+    //     }
+
+    //     return currentLevelReferrals;
+    // }
+
+    // function getNextLevelReferrals(address[] memory users)
+    //     internal
+    //     view
+    //     returns (address[] memory)
+    // {
+    //     address[] memory nextLevelReferrals;
+
+    //     for (uint256 i = 0; i < users.length; i++) {
+    //         address[] memory currentLevelReferrals = allUsers[users[i]].referrals;
+
+    //         nextLevelReferrals = appendToArray(nextLevelReferrals, currentLevelReferrals);
+    //     }
+
+    //     return nextLevelReferrals;
+    // }
 }
