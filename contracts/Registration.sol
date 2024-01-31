@@ -8,12 +8,14 @@ contract Registration is Initializable, OwnableUpgradeable {
     struct UserInfo {
         address referrer;
         address[] referrals;
-        bool isRegistered; // New field to track registration status
-        string uniqueId; // New field to store unique ID
+        address[] levels;
+        bool isRegistered;
+        string uniqueId;
     }
 
-    mapping(address => UserInfo) public allUsers;
-    mapping(string => address) public userAddressByUniqueId; // Mapping to store user addresses by unique ID
+    mapping(address => UserInfo) private allUsers;
+    mapping(string => address) private userAddressByUniqueId;
+    uint256 public totalUsers;
 
     event UserRegistered(address indexed user, address indexed referrer);
 
@@ -50,7 +52,6 @@ contract Registration is Initializable, OwnableUpgradeable {
     }
 
     function register(string memory referrerUniqueId) external {
-        string memory userUniqueId = getUniqueId(msg.sender);
         address referrer = findReferrerByUniqueId(referrerUniqueId);
 
         UserInfo storage user = allUsers[msg.sender];
@@ -62,32 +63,34 @@ contract Registration is Initializable, OwnableUpgradeable {
         );
         require(!user.isRegistered, "Already registered");
 
-        user.uniqueId = userUniqueId;
+        user.uniqueId = getUniqueId(msg.sender);
         user.referrer = referrer;
         user.isRegistered = true;
         referrerInfo.referrals.push(msg.sender);
 
-        userAddressByUniqueId[userUniqueId] = msg.sender;
+        // Add the user to level 1 of the referrer's levels
+        allUsers[referrer].levels.push(msg.sender);
+
+        userAddressByUniqueId[user.uniqueId] = msg.sender;
+        totalUsers++;
 
         emit UserRegistered(msg.sender, referrer);
     }
 
     function registerByOwner() external onlyOwner {
-        address ownerAddress = owner();
-        require(!allUsers[ownerAddress].isRegistered, "Already registered");
+        UserInfo storage ownerInfo = allUsers[owner()];
 
-        string memory ownerUniqueId = getUniqueId(ownerAddress);
+        require(!ownerInfo.isRegistered, "Already registered");
 
-        UserInfo storage ownerInfo = allUsers[ownerAddress];
-        ownerInfo.uniqueId = ownerUniqueId;
-        ownerInfo.referrer = ownerAddress;
+        ownerInfo.uniqueId = getUniqueId(owner());
+        ownerInfo.referrer = owner();
         ownerInfo.isRegistered = true;
-        ownerInfo.referrals.push(ownerAddress);
+        ownerInfo.referrals.push(owner());
 
-        // Update the mapping with the user's address
-        userAddressByUniqueId[ownerUniqueId] = ownerAddress;
+        userAddressByUniqueId[ownerInfo.uniqueId] = owner();
+        totalUsers++;
 
-        emit UserRegistered(ownerAddress, address(0));
+        emit UserRegistered(owner(), address(0));
     }
 
     function findReferrerByUniqueId(string memory referrerUniqueId)
@@ -106,5 +109,88 @@ contract Registration is Initializable, OwnableUpgradeable {
         returns (address[] memory)
     {
         return allUsers[user].referrals;
+    }
+
+    function getLevelsByUniqueId(address user, uint256 level)
+        external
+        view
+        returns (string[] memory)
+    {
+        address[] memory levels = allUsers[user].levels;
+
+        require(level > 0 && level <= 5, "Invalid level");
+
+        string[] memory uniqueIds;
+
+        for (uint256 i = 0; i < levels.length; i++) {
+            address[] memory currentLevel = allUsers[levels[i]].levels;
+
+            if (level == 1) {
+                // Level 1 is the direct referrals
+                uniqueIds = appendToStringArray(uniqueIds, getUniqueId(levels[i]));
+            } else {
+                // Traverse through the levels to find the desired level
+                for (uint256 j = 2; j <= level && currentLevel.length > 0; j++) {
+                    address[] memory nextLevel;
+                    for (uint256 k = 0; k < currentLevel.length; k++) {
+                        nextLevel = appendToArray(nextLevel, allUsers[currentLevel[k]].levels);
+                    }
+
+                    if (j == level) {
+                        for (uint256 k = 0; k < nextLevel.length; k++) {
+                            uniqueIds = appendToStringArray(uniqueIds, getUniqueId(nextLevel[k]));
+                        }
+                    }
+
+                    currentLevel = nextLevel;
+                }
+            }
+        }
+
+        return uniqueIds;
+    }
+
+    function getTotalAddressesJoined(address user) external view returns (uint256) {
+        address[] memory levels = allUsers[user].levels;
+
+        uint256 totalCount = levels.length;
+
+        for (uint256 i = 0; i < levels.length; i++) {
+            address[] memory currentLevel = allUsers[levels[i]].levels;
+
+            for (uint256 j = 0; j < currentLevel.length; j++) {
+                totalCount += allUsers[currentLevel[j]].levels.length;
+            }
+        }
+
+        return totalCount;
+    }
+
+    function appendToArray(address[] memory array, address[] memory elements)
+        internal
+        pure
+        returns (address[] memory)
+    {
+        address[] memory newArray = new address[](array.length + elements.length);
+        for (uint256 i = 0; i < array.length; i++) {
+            newArray[i] = array[i];
+        }
+        for (uint256 i = 0; i < elements.length; i++) {
+            newArray[array.length + i] = elements[i];
+        }
+        return newArray;
+    }
+
+    function appendToStringArray(string[] memory array, string memory element)
+        internal
+        pure
+        returns (string[] memory)
+    {
+        string[] memory newArray = new string[](array.length + 1);
+        for (uint256 i = 0; i < array.length; i++) {
+            newArray[i] = array[i];
+        }
+        newArray[array.length] = element;
+        return newArray;
     }
 }
