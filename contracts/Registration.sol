@@ -8,7 +8,7 @@ contract Registration is Initializable, OwnableUpgradeable {
     struct UserInfo {
         address referrer;
         address[] referrals;
-        address[] levels;
+        address[] levels; // This is the levels field
         bool isRegistered;
         string uniqueId;
     }
@@ -68,9 +68,6 @@ contract Registration is Initializable, OwnableUpgradeable {
         user.isRegistered = true;
         referrerInfo.referrals.push(msg.sender);
 
-        // Add the user to level 1 of the referrer's levels
-        allUsers[referrer].levels.push(msg.sender);
-
         userAddressByUniqueId[user.uniqueId] = msg.sender;
         totalUsers++;
 
@@ -116,50 +113,53 @@ contract Registration is Initializable, OwnableUpgradeable {
         view
         returns (uint256)
     {
-        address[] memory levels = allUsers[user].levels;
-
+        address[] memory levels = allUsers[user].referrals;
         uint256 totalCount = levels.length;
 
         for (uint256 i = 0; i < levels.length; i++) {
-            address[] memory currentLevel = allUsers[levels[i]].levels;
-
-            for (uint256 j = 0; j < currentLevel.length; j++) {
-                totalCount += allUsers[currentLevel[j]].levels.length;
-            }
+            totalCount += allUsers[levels[i]].referrals.length;
         }
 
         return totalCount;
     }
 
-    function appendToArray(address[] memory array, address[] memory elements)
-        internal
-        pure
-        returns (address[] memory)
-    {
-        address[] memory newArray = new address[](
-            array.length + elements.length
-        );
-        for (uint256 i = 0; i < array.length; i++) {
-            newArray[i] = array[i];
-        }
-        for (uint256 i = 0; i < elements.length; i++) {
-            newArray[array.length + i] = elements[i];
-        }
-        return newArray;
-    }
+    function excludeAddresses(
+        address[] memory source,
+        address[] memory exclusionList
+    ) internal pure returns (address[] memory) {
+        uint256 sourceLength = source.length;
+        uint256 exclusionLength = exclusionList.length;
 
-    // function appendToStringArray(string[] memory array, string memory element)
-    //     internal
-    //     pure
-    //     returns (string[] memory)
-    // {
-    //     string[] memory newArray = new string[](array.length + 1);
-    //     for (uint256 i = 0; i < array.length; i++) {
-    //         newArray[i] = array[i];
-    //     }
-    //     newArray[array.length] = element;
-    //     return newArray;
-    // }
+        if (exclusionLength == 0) {
+            return source;
+        }
+
+        address[] memory result = new address[](sourceLength);
+        uint256 resultIndex = 0;
+
+        for (uint256 i = 0; i < sourceLength; i++) {
+            bool exclude = false;
+
+            for (uint256 j = 0; j < exclusionLength; j++) {
+                if (source[i] == exclusionList[j]) {
+                    exclude = true;
+                    break;
+                }
+            }
+
+            if (!exclude) {
+                result[resultIndex] = source[i];
+                resultIndex++;
+            }
+        }
+
+        // Resize the result array to the correct length
+        assembly {
+            mstore(result, resultIndex)
+        }
+
+        return result;
+    }
 
     function getReferralsByLevel(address user, uint256 level)
         external
@@ -170,25 +170,37 @@ contract Registration is Initializable, OwnableUpgradeable {
         // Get referrals at the specified level
         address[] memory referrals = getReferralsAtLevel(user, level);
 
-        // Clear data for levels lower than the requested level
+        // Eliminate addresses from the previous level
+        if (level > 1) {
+            address[] memory previousLevelReferrals = getReferralsAtLevel(
+                user,
+                level - 1
+            );
+            referrals = excludeAddresses(referrals, previousLevelReferrals);
+        }
+
+        // Clear data for levels lower than or equal to the requested level
         clearDataForLowerLevels(user, level);
+
+        // Store addresses from the current level for future reference
+        storeAddressesForLevel(user, level, referrals);
 
         return referrals;
     }
 
-    function clearDataForLowerLevels(address user, uint256 level) internal {
+    function storeAddressesForLevel(
+        address user,
+        uint256 level,
+        address[] memory addresses
+    ) internal {
         UserInfo storage userInfo = allUsers[user];
 
-        // Clear data for levels lower than the requested level
-        for (uint256 i = 1; i < level; i++) {
-            user = userInfo.referrer;
-            userInfo = allUsers[user];
-            userInfo.levels = new address[](0);
-        }
+        // Store addresses for the specified level
+        userInfo.levels = addresses;
     }
 
     function getReferralsAtLevel(address user, uint256 level)
-        public
+        internal
         view
         returns (address[] memory)
     {
@@ -230,5 +242,39 @@ contract Registration is Initializable, OwnableUpgradeable {
         returns (address[] memory)
     {
         return allUsers[user].referrals;
+    }
+
+    function appendToArray(address[] memory array, address[] memory elements)
+        internal
+        pure
+        returns (address[] memory)
+    {
+        address[] memory newArray = new address[](
+            array.length + elements.length
+        );
+        for (uint256 i = 0; i < array.length; i++) {
+            newArray[i] = array[i];
+        }
+        for (uint256 i = 0; i < elements.length; i++) {
+            newArray[array.length + i] = elements[i];
+        }
+        return newArray;
+    }
+
+    function clearDataForLowerLevels(address user, uint256 level) internal {
+        UserInfo storage userInfo = allUsers[user];
+
+        // Clear data for levels lower than the requested level
+        for (uint256 i = 1; i <= level; i++) {
+            // Check if the user is registered to avoid unnecessary clearing
+            if (userInfo.isRegistered) {
+                userInfo.levels = new address[](0);
+                user = userInfo.referrer;
+                userInfo = allUsers[user];
+            } else {
+                // Break if the referrer is not registered
+                break;
+            }
+        }
     }
 }
