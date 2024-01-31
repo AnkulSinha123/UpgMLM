@@ -127,18 +127,31 @@ contract Registration is Initializable, OwnableUpgradeable {
 
             if (level == 1) {
                 // Level 1 is the direct referrals
-                uniqueIds = appendToStringArray(uniqueIds, getUniqueId(levels[i]));
+                uniqueIds = appendToStringArray(
+                    uniqueIds,
+                    getUniqueId(levels[i])
+                );
             } else {
                 // Traverse through the levels to find the desired level
-                for (uint256 j = 2; j <= level && currentLevel.length > 0; j++) {
+                for (
+                    uint256 j = 2;
+                    j <= level && currentLevel.length > 0;
+                    j++
+                ) {
                     address[] memory nextLevel;
                     for (uint256 k = 0; k < currentLevel.length; k++) {
-                        nextLevel = appendToArray(nextLevel, allUsers[currentLevel[k]].levels);
+                        nextLevel = appendToArray(
+                            nextLevel,
+                            allUsers[currentLevel[k]].levels
+                        );
                     }
 
                     if (j == level) {
                         for (uint256 k = 0; k < nextLevel.length; k++) {
-                            uniqueIds = appendToStringArray(uniqueIds, getUniqueId(nextLevel[k]));
+                            uniqueIds = appendToStringArray(
+                                uniqueIds,
+                                getUniqueId(nextLevel[k])
+                            );
                         }
                     }
 
@@ -150,7 +163,11 @@ contract Registration is Initializable, OwnableUpgradeable {
         return uniqueIds;
     }
 
-    function getTotalAddressesJoined(address user) external view returns (uint256) {
+    function getTotalAddressesJoined(address user)
+        external
+        view
+        returns (uint256)
+    {
         address[] memory levels = allUsers[user].levels;
 
         uint256 totalCount = levels.length;
@@ -171,7 +188,9 @@ contract Registration is Initializable, OwnableUpgradeable {
         pure
         returns (address[] memory)
     {
-        address[] memory newArray = new address[](array.length + elements.length);
+        address[] memory newArray = new address[](
+            array.length + elements.length
+        );
         for (uint256 i = 0; i < array.length; i++) {
             newArray[i] = array[i];
         }

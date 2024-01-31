@@ -50,10 +50,11 @@ contract Pro_Power_Matrix is
 
     address public usdtToken; // USDT token address
 
-    function initialize(address initialOwner, address _usdtToken,address _royalty)
-        external
-        initializer
-    {
+    function initialize(
+        address initialOwner,
+        address _usdtToken,
+        address _royalty
+    ) external initializer {
         __Ownable_init(initialOwner);
         usdtToken = _usdtToken;
 
@@ -189,7 +190,7 @@ contract Pro_Power_Matrix is
         distribute2USDT();
 
         // Distribute the remaining amount among upline and downlines
-        uint256 remainingAmount = packagePrice - 2 * 10**6 ;
+        uint256 remainingAmount = packagePrice - 2 * 10**6;
 
         // Transfer ETH to upline1
         payable(upline1).transfer(remainingAmount / 2);
@@ -302,5 +303,60 @@ contract Pro_Power_Matrix is
         for (uint256 i = 0; i < secondLayer.length; i++) {
             delete userPackages[secondLayer[i]];
         }
+    }
+
+    function getTotalPurchases() external view returns (uint256) {
+        uint256 totalPurchases = 0;
+
+        // Iterate through all users
+        for (uint256 i = 0; i < packageInfo.length; i++) {
+            address[] storage userAddresses = downlines[i][owner()];
+
+            // Iterate through downlines of the owner (contract creator)
+            for (uint256 j = 0; j < userAddresses.length; j++) {
+                address user = userAddresses[j];
+                totalPurchases += packageInfo[userPackages[user]].price;
+            }
+        }
+
+        return totalPurchases;
+    }
+
+    function getTopEarner()
+        external
+        view
+        returns (address topEarner, uint256 highestEarnings)
+    {
+        for (uint256 i = 0; i < packageInfo.length; i++) {
+            address[] storage userAddresses = downlines[i][owner()];
+
+            for (uint256 j = 0; j < userAddresses.length; j++) {
+                address user = userAddresses[j];
+                uint256 userEarnings = calculateUserEarnings(user);
+
+                if (userEarnings > highestEarnings) {
+                    topEarner = user;
+                    highestEarnings = userEarnings;
+                }
+            }
+        }
+
+        return (topEarner, highestEarnings);
+    }
+
+    function calculateUserEarnings(address user)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 totalEarnings = 0;
+
+        // Add user's direct and secondary earnings
+        totalEarnings += (2 ether * upline1_PERCENTAGE) / 100; // Direct earnings
+        totalEarnings += (2 ether * upline2_PERCENTAGE) / 100; // Secondary earnings (upline2)
+
+        // Add additional earnings based on your business logic
+
+        return totalEarnings;
     }
 }
