@@ -322,10 +322,13 @@ contract Pro_Power_Matrix is
         return totalPurchases;
     }
 
-    function getTopEarner()
+    function getTop10Earners()
         external
         view
-        returns (address topEarner, uint256 highestEarnings)
+        returns (
+            address[10] memory topEarners,
+            uint256[10] memory highestEarnings
+        )
     {
         for (uint256 i = 0; i < packageInfo.length; i++) {
             address[] storage userAddresses = downlines[i][owner()];
@@ -334,14 +337,27 @@ contract Pro_Power_Matrix is
                 address user = userAddresses[j];
                 uint256 userEarnings = calculateUserEarnings(user);
 
-                if (userEarnings > highestEarnings) {
-                    topEarner = user;
-                    highestEarnings = userEarnings;
+                // Check if the user should be included in the top earners list
+                for (uint256 k = 0; k < 10; k++) {
+                    if (userEarnings > highestEarnings[k]) {
+                        // Shift down the existing earners to make room for the new one
+                        for (uint256 l = 9; l > k; l--) {
+                            topEarners[l] = topEarners[l - 1];
+                            highestEarnings[l] = highestEarnings[l - 1];
+                        }
+
+                        // Insert the new top earner
+                        topEarners[k] = user;
+                        highestEarnings[k] = userEarnings;
+
+                        // Break the inner loop as the user is already inserted
+                        break;
+                    }
                 }
             }
         }
 
-        return (topEarner, highestEarnings);
+        return (topEarners, highestEarnings);
     }
 
     function calculateUserEarnings(address user)
@@ -359,4 +375,6 @@ contract Pro_Power_Matrix is
 
         return totalEarnings;
     }
+
+
 }
