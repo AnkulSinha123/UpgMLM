@@ -282,10 +282,9 @@ contract Registration is Initializable, OwnableUpgradeable {
         returns (uint256)
     {
         string[] memory abc = getReferralsByLevel(user, level);
-        uint xyz = abc.length;
+        uint256 xyz = abc.length;
 
         return xyz;
-
     }
 
     function storeAddressesForLevel(
