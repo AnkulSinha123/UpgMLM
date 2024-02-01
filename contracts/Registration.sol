@@ -13,8 +13,8 @@ contract Registration is Initializable, OwnableUpgradeable {
         string uniqueId;
     }
 
-    mapping(address => UserInfo) private allUsers;
-    mapping(string => address) private userAddressByUniqueId;
+    mapping(address => UserInfo) public allUsers;
+    mapping(string => address) public userAddressByUniqueId;
     uint256 public totalUsers;
 
     event UserRegistered(address indexed user, address indexed referrer);
@@ -23,7 +23,11 @@ contract Registration is Initializable, OwnableUpgradeable {
         __Ownable_init(initialOwner);
     }
 
-    function getUniqueId(address user) public pure returns (string memory) {
+    function GetAddressFromId(address user)
+        public
+        pure
+        returns (string memory)
+    {
         return toString(uint160(user) % 1e10);
     }
 
@@ -51,7 +55,7 @@ contract Registration is Initializable, OwnableUpgradeable {
         return string(buffer);
     }
 
-    function register(string memory referrerUniqueId) external {
+    function registerUser(string memory referrerUniqueId) external {
         address referrer = findReferrerByUniqueId(referrerUniqueId);
 
         UserInfo storage user = allUsers[msg.sender];
@@ -63,7 +67,7 @@ contract Registration is Initializable, OwnableUpgradeable {
         );
         require(!user.isRegistered, "Already registered");
 
-        user.uniqueId = getUniqueId(msg.sender);
+        user.uniqueId = GetAddressFromId(msg.sender);
         user.referrer = referrer;
         user.isRegistered = true;
         referrerInfo.referrals.push(msg.sender);
@@ -79,7 +83,7 @@ contract Registration is Initializable, OwnableUpgradeable {
 
         require(!ownerInfo.isRegistered, "Already registered");
 
-        ownerInfo.uniqueId = getUniqueId(owner());
+        ownerInfo.uniqueId = GetAddressFromId(owner());
         ownerInfo.referrer = owner();
         ownerInfo.isRegistered = true;
         ownerInfo.referrals.push(owner());
@@ -108,43 +112,12 @@ contract Registration is Initializable, OwnableUpgradeable {
         return allUsers[user].referrals;
     }
 
-    function getTotalAddressesJoined(address user)
-        external
-        view
-        returns (uint256)
-    {
-        address[] memory levels = allUsers[user].referrals;
-        uint256 totalCount = levels.length;
-
-        for (uint256 i = 0; i < levels.length; i++) {
-            totalCount += allUsers[levels[i]].referrals.length;
-        }
-
-        return totalCount;
-    }
-
     function getDirectReferralsCount(address user)
         external
         view
         returns (uint256)
     {
         return allUsers[user].referrals.length;
-    }
-
-    function GetAllReferralsCount(address user)
-        external
-        view
-        returns (uint256)
-    {
-        uint256 totalAddressesJoined = this.getTotalAddressesJoined(user);
-        uint256 directReferralsCount = this.getDirectReferralsCount(user);
-
-        if (totalAddressesJoined >= directReferralsCount) {
-            return totalAddressesJoined - directReferralsCount;
-        } else {
-            // Handle the case where totalAddressesJoined is unexpectedly less than directReferralsCount
-            return 0;
-        }
     }
 
     function excludeAddresses(
@@ -375,5 +348,36 @@ contract Registration is Initializable, OwnableUpgradeable {
                 break;
             }
         }
+    }
+
+    // Add this function to your existing contract
+
+    function getTotalRegisteredUsersByUniqueId(string memory userUniqueId)
+        external
+        view
+        returns (uint256)
+    {
+        address user = userAddressByUniqueId[userUniqueId];
+        require(user != address(0), "User not found");
+
+        uint256 totalCount = getTotalRegisteredUsersRecursive(user);
+
+        return totalCount - 1;
+    }
+
+    function getTotalRegisteredUsersRecursive(address user)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 totalCount = 1; // Include the current user
+
+        address[] memory referrals = allUsers[user].referrals;
+
+        for (uint256 i = 0; i < referrals.length; i++) {
+            totalCount += getTotalRegisteredUsersRecursive(referrals[i]);
+        }
+
+        return totalCount;
     }
 }
