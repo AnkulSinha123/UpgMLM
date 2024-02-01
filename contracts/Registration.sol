@@ -123,6 +123,30 @@ contract Registration is Initializable, OwnableUpgradeable {
         return totalCount;
     }
 
+    function getDirectReferralsCount(address user)
+        external
+        view
+        returns (uint256)
+    {
+        return allUsers[user].referrals.length;
+    }
+
+    function GetAllReferralsCount(address user)
+        external
+        view
+        returns (uint256)
+    {
+        uint256 totalAddressesJoined = this.getTotalAddressesJoined(user);
+        uint256 directReferralsCount = this.getDirectReferralsCount(user);
+
+        if (totalAddressesJoined >= directReferralsCount) {
+            return totalAddressesJoined - directReferralsCount;
+        } else {
+            // Handle the case where totalAddressesJoined is unexpectedly less than directReferralsCount
+            return 0;
+        }
+    }
+
     function excludeAddresses(
         address[] memory source,
         address[] memory exclusionList
@@ -161,14 +185,65 @@ contract Registration is Initializable, OwnableUpgradeable {
         return result;
     }
 
+    // Add this function to exclude strings from an array of strings
+    function excludeStrings(
+        string[] memory source,
+        string[] memory exclusionList
+    ) internal pure returns (string[] memory) {
+        uint256 sourceLength = source.length;
+        uint256 exclusionLength = exclusionList.length;
+
+        if (exclusionLength == 0) {
+            return source;
+        }
+
+        string[] memory result = new string[](sourceLength);
+        uint256 resultIndex = 0;
+
+        for (uint256 i = 0; i < sourceLength; i++) {
+            bool exclude = false;
+
+            for (uint256 j = 0; j < exclusionLength; j++) {
+                if (
+                    keccak256(abi.encodePacked(source[i])) ==
+                    keccak256(abi.encodePacked(exclusionList[j]))
+                ) {
+                    exclude = true;
+                    break;
+                }
+            }
+
+            if (!exclude) {
+                result[resultIndex] = source[i];
+                resultIndex++;
+            }
+        }
+
+        // Resize the result array to the correct length
+        assembly {
+            mstore(result, resultIndex)
+        }
+
+        return result;
+    }
+
+    // Modify the getReferralsByLevel function
     function getReferralsByLevel(address user, uint256 level)
-        external
-        returns (address[] memory)
+        public
+        returns (string[] memory)
     {
         require(level > 0 && level <= 5, "Invalid level");
 
         // Get referrals at the specified level
-        address[] memory referrals = getReferralsAtLevel(user, level);
+        address[] memory referralAddresses = getReferralsAtLevel(user, level);
+        string[] memory referralUniqueIds = new string[](
+            referralAddresses.length
+        );
+
+        // Convert referral addresses to uniqueIds
+        for (uint256 i = 0; i < referralAddresses.length; i++) {
+            referralUniqueIds[i] = allUsers[referralAddresses[i]].uniqueId;
+        }
 
         // Eliminate addresses from the previous level
         if (level > 1) {
@@ -176,16 +251,41 @@ contract Registration is Initializable, OwnableUpgradeable {
                 user,
                 level - 1
             );
-            referrals = excludeAddresses(referrals, previousLevelReferrals);
+
+            // Convert previous level referral addresses to uniqueIds
+            string[] memory previousLevelUniqueIds = new string[](
+                previousLevelReferrals.length
+            );
+            for (uint256 i = 0; i < previousLevelReferrals.length; i++) {
+                previousLevelUniqueIds[i] = allUsers[previousLevelReferrals[i]]
+                    .uniqueId;
+            }
+
+            // Exclude previous level referrals from the current level referrals
+            referralUniqueIds = excludeStrings(
+                referralUniqueIds,
+                previousLevelUniqueIds
+            );
         }
 
         // Clear data for levels lower than or equal to the requested level
         clearDataForLowerLevels(user, level);
 
         // Store addresses from the current level for future reference
-        storeAddressesForLevel(user, level, referrals);
+        storeAddressesForLevel(user, level, referralAddresses);
 
-        return referrals;
+        return referralUniqueIds;
+    }
+
+    function getReferralsByLevelCount(address user, uint256 level)
+        external
+        returns (uint256)
+    {
+        string[] memory abc = getReferralsByLevel(user, level);
+        uint xyz = abc.length;
+
+        return xyz;
+
     }
 
     function storeAddressesForLevel(
