@@ -23,7 +23,7 @@ contract Registration is Initializable, OwnableUpgradeable {
         __Ownable_init(initialOwner);
     }
 
-    function GetAddressFromId(address user)
+    function GetIdFromAddress(address user)
         public
         pure
         returns (string memory)
@@ -67,7 +67,7 @@ contract Registration is Initializable, OwnableUpgradeable {
         );
         require(!user.isRegistered, "Already registered");
 
-        user.uniqueId = GetAddressFromId(msg.sender);
+        user.uniqueId = GetIdFromAddress(msg.sender);
         user.referrer = referrer;
         user.isRegistered = true;
         referrerInfo.referrals.push(msg.sender);
@@ -83,7 +83,7 @@ contract Registration is Initializable, OwnableUpgradeable {
 
         require(!ownerInfo.isRegistered, "Already registered");
 
-        ownerInfo.uniqueId = GetAddressFromId(owner());
+        ownerInfo.uniqueId = GetIdFromAddress(owner());
         ownerInfo.referrer = owner();
         ownerInfo.isRegistered = true;
         ownerInfo.referrals.push(owner());
@@ -102,14 +102,6 @@ contract Registration is Initializable, OwnableUpgradeable {
         address referrerAddress = userAddressByUniqueId[referrerUniqueId];
         require(referrerAddress != address(0), "Referrer not found");
         return referrerAddress;
-    }
-
-    function getReferrals(address user)
-        external
-        view
-        returns (address[] memory)
-    {
-        return allUsers[user].referrals;
     }
 
     function getDirectReferralsCount(address user)
