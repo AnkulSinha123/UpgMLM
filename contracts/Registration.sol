@@ -105,7 +105,7 @@ contract Registration is Initializable, OwnableUpgradeable {
     }
 
     function getDirectReferrals(string memory uniqueId)
-        public
+        external
         view
         returns (string[] memory)
     {

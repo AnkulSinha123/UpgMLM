@@ -1,15 +1,141 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
-contract Ether_Pro_Power_Matrix is
-    Initializable,
-    OwnableUpgradeable,
-    ERC20Upgradeable
-{
+contract Registration is Initializable, OwnableUpgradeable {
+    struct UserInfo {
+        address referrer;
+        address[] referrals;
+        address[] levels; // This is the levels field
+        bool isRegistered;
+        string uniqueId;
+    }
+
+    mapping(address => UserInfo) public allUsers;
+    mapping(string => address) public userAddressByUniqueId;
+    uint256 public totalUsers;
+
+    event UserRegistered(address indexed user, address indexed referrer);
+
+    function initialize(address initialOwner) public initializer {
+        __Ownable_init(initialOwner);
+    }
+
+    function GetIdFromAddress(address user)
+        public
+        pure
+        returns (string memory)
+    {
+        return toString(uint160(user) % 1e10);
+    }
+
+    function toString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
+            return "0";
+        }
+
+        uint256 temp = value;
+        uint256 digits;
+
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+
+        bytes memory buffer = new bytes(digits);
+
+        for (uint256 i = 0; i < digits; i++) {
+            buffer[i] = bytes1(
+                uint8(48 + ((value / 10**(digits - 1 - i)) % 10))
+            );
+        }
+
+        return string(buffer);
+    }
+
+    function registerUser(string memory referrerUniqueId) external {
+        address referrer = findReferrerByUniqueId(referrerUniqueId);
+
+        UserInfo storage user = allUsers[msg.sender];
+        UserInfo storage referrerInfo = allUsers[referrer];
+
+        require(
+            referrerInfo.isRegistered || referrer == owner(),
+            "Not registered"
+        );
+        require(!user.isRegistered, "Already registered");
+
+        user.uniqueId = GetIdFromAddress(msg.sender);
+        user.referrer = referrer;
+        user.isRegistered = true;
+        referrerInfo.referrals.push(msg.sender);
+
+        userAddressByUniqueId[user.uniqueId] = msg.sender;
+        totalUsers++;
+
+        emit UserRegistered(msg.sender, referrer);
+    }
+
+    function registerByOwner() external onlyOwner {
+        UserInfo storage ownerInfo = allUsers[owner()];
+
+        require(!ownerInfo.isRegistered, "Already registered");
+
+        ownerInfo.uniqueId = GetIdFromAddress(owner());
+        ownerInfo.referrer = owner();
+        ownerInfo.isRegistered = true;
+        ownerInfo.referrals.push(owner());
+
+        userAddressByUniqueId[ownerInfo.uniqueId] = owner();
+        totalUsers++;
+
+        emit UserRegistered(owner(), address(0));
+    }
+
+    function findReferrerByUniqueId(string memory referrerUniqueId)
+        internal
+        view
+        returns (address)
+    {
+        address referrerAddress = userAddressByUniqueId[referrerUniqueId];
+        require(referrerAddress != address(0), "Referrer not found");
+        return referrerAddress;
+    }
+
+    function getDirectReferrals(string memory uniqueId)
+        external
+        view
+        returns (string[] memory)
+    {
+        address userAddress = userAddressByUniqueId[uniqueId];
+        require(userAddress != address(0), "User not found");
+
+        address[] memory referrals = allUsers[userAddress].referrals;
+        string[] memory referralUniqueIds = new string[](referrals.length);
+
+        for (uint256 i = 0; i < referrals.length; i++) {
+            referralUniqueIds[i] = allUsers[referrals[i]].uniqueId;
+        }
+
+        return referralUniqueIds;
+    }
+
+    function getDirectReferralsCount(string memory uniqueId)
+        external
+        view
+        returns (uint256)
+    {
+        address userAddress = userAddressByUniqueId[uniqueId];
+        require(userAddress != address(0), "User not found");
+
+        return allUsers[userAddress].referrals.length;
+    }
+}
+
+contract Pro_Power_Matrix is ERC20Upgradeable, Registration {
     mapping(address => uint256) public userPackages;
     mapping(address => address) public upline; // Mapping to store upline for each user
     mapping(uint256 => mapping(address => address[])) public downlines;
@@ -48,24 +174,28 @@ contract Ether_Pro_Power_Matrix is
     uint256 private constant upline4_PERCENTAGE = 10;
     uint256 private constant upline5_PERCENTAGE = 10;
 
-    function initialize(address initialOwner, address _royalty)
-        external
-        initializer
-    {
-        __Ownable_init(initialOwner);
+    address public usdtToken; // USDT token address
 
-        packageInfo.push(Package(5 ether, 4, 16));
-        packageInfo.push(Package(8 ether, 4, 16));
-        packageInfo.push(Package(14 ether, 4, 16));
-        packageInfo.push(Package(28 ether, 4, 16));
-        packageInfo.push(Package(50 ether, 4, 16));
-        packageInfo.push(Package(98 ether, 4, 16));
-        packageInfo.push(Package(194 ether, 4, 16));
-        packageInfo.push(Package(386 ether, 4, 16));
-        packageInfo.push(Package(770 ether, 4, 16));
-        packageInfo.push(Package(1538 ether, 4, 16));
-        packageInfo.push(Package(3072 ether, 4, 16));
-        packageInfo.push(Package(6146 ether, 4, 16));
+    function initialize(
+        address initialOwner,
+        address _usdtToken,
+        address _royalty
+    ) external initializer {
+        __Ownable_init(initialOwner);
+        usdtToken = _usdtToken;
+
+        packageInfo.push(Package(5 * 10**6, 4, 16));
+        packageInfo.push(Package(8 * 10**6, 4, 16));
+        packageInfo.push(Package(14 * 10**6, 4, 16));
+        packageInfo.push(Package(28 * 10**6, 4, 16));
+        packageInfo.push(Package(50 * 10**6, 4, 16));
+        packageInfo.push(Package(98 * 10**6, 4, 16));
+        packageInfo.push(Package(194 * 10**6, 4, 16));
+        packageInfo.push(Package(386 * 10**6, 4, 16));
+        packageInfo.push(Package(770 * 10**6, 4, 16));
+        packageInfo.push(Package(1538 * 10**6, 4, 16));
+        packageInfo.push(Package(3072 * 10**6, 4, 16));
+        packageInfo.push(Package(6146 * 10**6, 4, 16));
 
         // Set initial upline addresses
         upline1 = payable(owner());
@@ -138,8 +268,11 @@ contract Ether_Pro_Power_Matrix is
         uint256 packagePrice = packageInfo[packageIndex].price;
         require(
             msg.value >= packagePrice,
-            "Insufficient ETH sent for package purchase"
+            "Insufficient USDT sent for package purchase"
         );
+
+        // Check if the user is registered
+        require(allUsers[msg.sender].isRegistered, "User is not registered");
 
         // Check the maximum allowed direct downlines and secondary downlines
         require(
@@ -182,13 +315,13 @@ contract Ether_Pro_Power_Matrix is
         // Set upline addresses
         updateAndSetDistributionAddresses(current);
 
-        // Distribute 2 ETH among levels 1 to 5 (deducted from the package price)
-        distribute2ETH();
+        // Distribute 2 USDT among levels 1 to 5 (deducted from the package price)
+        distribute2USDT();
 
         // Distribute the remaining amount among upline and downlines
-        uint256 remainingAmount = packagePrice - 2 ether;
+        uint256 remainingAmount = packagePrice - 2 * 10**6;
 
-        // Transfer ETH to upline1
+        // Transfer USDT to upline1
         payable(upline1).transfer(remainingAmount / 2);
 
         address[] storage secondLayer = secondLayerDownlines[packageIndex][
@@ -233,15 +366,30 @@ contract Ether_Pro_Power_Matrix is
         emit PackagePurchased(msg.sender, packageIndex, packagePrice);
     }
 
-    function distribute2ETH() public payable {
-        uint256 ethToDistribute = 2 ether; // 2 ETH
+    function distribute2USDT() internal {
+        uint256 usdtToDistribute = 2 * 10**6; // 2 USDT
 
-        // Transfer ETH to levels
-        payable(upline1).transfer((ethToDistribute * upline1_PERCENTAGE) / 100);
-        payable(upline2).transfer((ethToDistribute * upline2_PERCENTAGE) / 100);
-        payable(upline3).transfer((ethToDistribute * upline3_PERCENTAGE) / 100);
-        payable(upline4).transfer((ethToDistribute * upline4_PERCENTAGE) / 100);
-        payable(upline5).transfer((ethToDistribute * upline5_PERCENTAGE) / 100);
+        // Transfer USDT to levels
+        IERC20(usdtToken).transfer(
+            upline1,
+            (usdtToDistribute * upline1_PERCENTAGE) / 100
+        );
+        IERC20(usdtToken).transfer(
+            upline2,
+            (usdtToDistribute * upline2_PERCENTAGE) / 100
+        );
+        IERC20(usdtToken).transfer(
+            upline3,
+            (usdtToDistribute * upline3_PERCENTAGE) / 100
+        );
+        IERC20(usdtToken).transfer(
+            upline4,
+            (usdtToDistribute * upline4_PERCENTAGE) / 100
+        );
+        IERC20(usdtToken).transfer(
+            upline5,
+            (usdtToDistribute * upline5_PERCENTAGE) / 100
+        );
     }
 
     function getUserPackage(address user) external view returns (uint256) {
@@ -349,8 +497,8 @@ contract Ether_Pro_Power_Matrix is
         uint256 totalEarnings = 0;
 
         // Add user's direct and secondary earnings
-        totalEarnings += (2 ether * upline1_PERCENTAGE) / 100; // Direct earnings
-        totalEarnings += (2 ether * upline2_PERCENTAGE) / 100; // Secondary earnings (upline2)
+        totalEarnings += ((2 * 10**6) * upline1_PERCENTAGE) / 100; // Direct earnings
+        totalEarnings += ((2 * 10**6) * upline2_PERCENTAGE) / 100; // Secondary earnings (upline2)
 
         // Add additional earnings based on your business logic
 

@@ -2,14 +2,15 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-//import "./Registration.sol";
+//  import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+//  import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "./Registration.sol";
 
 contract Pro_Power_Matrix is
-    Initializable,
-    OwnableUpgradeable,
-    ERC20Upgradeable
+    // Initializable,
+    // OwnableUpgradeable,
+    ERC20Upgradeable,
+    Registration
 {
     mapping(address => uint256) public userPackages;
     mapping(address => address) public upline; // Mapping to store upline for each user
@@ -143,8 +144,11 @@ contract Pro_Power_Matrix is
         uint256 packagePrice = packageInfo[packageIndex].price;
         require(
             msg.value >= packagePrice,
-            "Insufficient ETH sent for package purchase"
+            "Insufficient USDT sent for package purchase"
         );
+
+        // Check if the user is registered
+        require(allUsers[msg.sender].isRegistered, "User is not registered");
 
         // Check the maximum allowed direct downlines and secondary downlines
         require(
@@ -187,13 +191,13 @@ contract Pro_Power_Matrix is
         // Set upline addresses
         updateAndSetDistributionAddresses(current);
 
-        // Distribute 2 ETH among levels 1 to 5 (deducted from the package price)
+        // Distribute 2 USDT among levels 1 to 5 (deducted from the package price)
         distribute2USDT();
 
         // Distribute the remaining amount among upline and downlines
         uint256 remainingAmount = packagePrice - 2 * 10**6;
 
-        // Transfer ETH to upline1
+        // Transfer USDT to upline1
         payable(upline1).transfer(remainingAmount / 2);
 
         address[] storage secondLayer = secondLayerDownlines[packageIndex][
@@ -369,12 +373,48 @@ contract Pro_Power_Matrix is
         uint256 totalEarnings = 0;
 
         // Add user's direct and secondary earnings
-        totalEarnings += (2 ether * upline1_PERCENTAGE) / 100; // Direct earnings
-        totalEarnings += (2 ether * upline2_PERCENTAGE) / 100; // Secondary earnings (upline2)
+        totalEarnings += ((2 * 10**6) * upline1_PERCENTAGE) / 100; // Direct earnings
+        totalEarnings += ((2 * 10**6 )* upline2_PERCENTAGE) / 100; // Secondary earnings (upline2)
 
         // Add additional earnings based on your business logic
 
         return totalEarnings;
+    }
+
+    function addUserToDirectDownlineAndProvidePackage(
+        address user,
+        uint256 packageIndex
+    ) external onlyOwner {
+        require(packageIndex < packageInfo.length, "Invalid package index");
+
+        // Ensure the package index is valid
+
+        // Check if the user is not already in the downline
+        require(upline[user] == address(0), "User is already in the downline");
+
+        // Add the user to the direct downline
+        upline[user] = owner();
+
+        // Update user's package index
+        userPackages[user] = packageIndex;
+
+        // Emit an event for the package purchase
+        emit PackagePurchased(
+            user,
+            packageIndex,
+            packageInfo[packageIndex].price
+        );
+    }
+
+    function ownerBuysAllPackages() external onlyOwner {
+        // Iterate through all packages and purchase them for the owner
+        for (uint256 i = 0; i < packageInfo.length; i++) {
+            // Update user's package index
+            userPackages[owner()] = i;
+
+            // Emit an event for the package purchase
+            emit PackagePurchased(owner(), i, packageInfo[i].price);
+        }
     }
 
 
