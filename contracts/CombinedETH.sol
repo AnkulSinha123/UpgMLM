@@ -9,7 +9,6 @@ contract Registration is Initializable, OwnableUpgradeable {
     struct UserInfo {
         address referrer;
         address[] referrals;
-        address[] levels; // This is the levels field
         bool isRegistered;
         string uniqueId;
     }
@@ -18,7 +17,15 @@ contract Registration is Initializable, OwnableUpgradeable {
     mapping(string => address) public userAddressByUniqueId;
     uint256 public totalUsers;
 
-    event UserRegistered(address indexed user, address indexed referrer);
+    event UserRegistered(
+        address indexed user,
+        address indexed referrer,
+        uint256 timestamp
+    );
+
+    function initialize(address initialOwner) public initializer {
+        __Ownable_init(initialOwner);
+    }
 
     function GetIdFromAddress(address user)
         public
@@ -72,7 +79,7 @@ contract Registration is Initializable, OwnableUpgradeable {
         userAddressByUniqueId[user.uniqueId] = msg.sender;
         totalUsers++;
 
-        emit UserRegistered(msg.sender, referrer);
+        emit UserRegistered(msg.sender, referrer, block.timestamp);
     }
 
     function registerByOwner() external onlyOwner {
@@ -88,7 +95,7 @@ contract Registration is Initializable, OwnableUpgradeable {
         userAddressByUniqueId[ownerInfo.uniqueId] = owner();
         totalUsers++;
 
-        emit UserRegistered(owner(), address(0));
+        emit UserRegistered(owner(), address(0), block.timestamp);
     }
 
     function findReferrerByUniqueId(string memory referrerUniqueId)
@@ -128,6 +135,63 @@ contract Registration is Initializable, OwnableUpgradeable {
         require(userAddress != address(0), "User not found");
 
         return allUsers[userAddress].referrals.length;
+    }
+
+    function getTotalReferralCount(address user)
+        external
+        view
+        returns (uint256 directReferrals, uint256 totalReferrals)
+    {
+        directReferrals = allUsers[user].referrals.length;
+        totalReferrals = countTotalReferrals(user);
+    }
+
+    function countTotalReferrals(address user) internal view returns (uint256) {
+        uint256 totalReferrals = allUsers[user].referrals.length;
+
+        for (uint256 i = 0; i < allUsers[user].referrals.length; i++) {
+            totalReferrals += countTotalReferrals(allUsers[user].referrals[i]);
+        }
+
+        return totalReferrals;
+    }
+
+    function getCompleteTeam(string memory uniqueId)
+        external
+        view
+        returns (string[] memory)
+    {
+        address userAddress = userAddressByUniqueId[uniqueId];
+        require(userAddress != address(0), "User not found");
+
+        string[] memory teamUniqueIds = new string[](
+            countTotalReferrals(userAddress) + 1
+        );
+        uint256 currentIndex = 0;
+
+        traverseTeam(userAddress, teamUniqueIds, currentIndex);
+        return teamUniqueIds;
+    }
+
+    function traverseTeam(
+        address currentAddress,
+        string[] memory teamUniqueIds,
+        uint256 currentIndex
+    ) internal view {
+        teamUniqueIds[currentIndex] = allUsers[currentAddress].uniqueId;
+        currentIndex++;
+
+        for (
+            uint256 i = 0;
+            i < allUsers[currentAddress].referrals.length;
+            i++
+        ) {
+            traverseTeam(
+                allUsers[currentAddress].referrals[i],
+                teamUniqueIds,
+                currentIndex
+            );
+        }
     }
 }
 
