@@ -10,6 +10,7 @@ contract Registration is Initializable, OwnableUpgradeable {
         address[] referrals;
         bool isRegistered;
         string uniqueId;
+        uint256 timestamp;
     }
 
     mapping(address => UserInfo) public allUsers;
@@ -74,6 +75,7 @@ contract Registration is Initializable, OwnableUpgradeable {
         user.referrer = referrer;
         user.isRegistered = true;
         referrerInfo.referrals.push(msg.sender);
+        user.timestamp = block.timestamp;
 
         userAddressByUniqueId[user.uniqueId] = msg.sender;
         totalUsers++;
@@ -90,6 +92,7 @@ contract Registration is Initializable, OwnableUpgradeable {
         ownerInfo.referrer = owner();
         ownerInfo.isRegistered = true;
         ownerInfo.referrals.push(owner());
+        ownerInfo.timestamp = block.timestamp;
 
         userAddressByUniqueId[ownerInfo.uniqueId] = owner();
         totalUsers++;
@@ -163,9 +166,8 @@ contract Registration is Initializable, OwnableUpgradeable {
         address userAddress = userAddressByUniqueId[uniqueId];
         require(userAddress != address(0), "User not found");
 
-        string[] memory teamUniqueIds = new string[](
-            countTotalReferrals(userAddress) + 1
-        );
+        uint256 totalReferrals = countTotalReferrals(userAddress);
+        string[] memory teamUniqueIds = new string[](totalReferrals + 1);
         uint256 currentIndex = 0;
 
         traverseTeam(userAddress, teamUniqueIds, currentIndex);
