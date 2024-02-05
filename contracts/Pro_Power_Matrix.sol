@@ -5,15 +5,14 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "./Registration.sol";
+//import "./Registration.sol";
 
 
 
 contract Pro_Power_Matrix is
     Initializable,
     OwnableUpgradeable,
-    ERC20Upgradeable,
-    Registration
+    ERC20Upgradeable
 {
     mapping(address => uint256) public userPackages;
     mapping(address => address) public upline; // Mapping to store upline for each user
@@ -150,8 +149,8 @@ contract Pro_Power_Matrix is
             "Insufficient USDT sent for package purchase"
         );
 
-        // Check if the user is registered
-        require(allUsers[msg.sender].isRegistered, "User is not registered");
+        // // Check if the user is registered
+        // require(allUsers[msg.sender].isRegistered, "User is not registered");
 
         // Check the maximum allowed direct downlines and secondary downlines
         require(

@@ -159,43 +159,6 @@ contract Registration is Initializable, OwnableUpgradeable {
 
         return totalReferrals;
     }
-
-    function getCompleteTeam(string memory uniqueId)
-        external
-        view
-        returns (string[] memory)
-    {
-        address userAddress = userAddressByUniqueId[uniqueId];
-        require(userAddress != address(0), "User not found");
-
-        uint256 totalReferrals = countTotalReferrals(userAddress);
-        string[] memory teamUniqueIds = new string[](totalReferrals + 1);
-        uint256 currentIndex = 0;
-
-        traverseTeam(userAddress, teamUniqueIds, currentIndex);
-        return teamUniqueIds;
-    }
-
-    function traverseTeam(
-        address currentAddress,
-        string[] memory teamUniqueIds,
-        uint256 currentIndex
-    ) internal view {
-        teamUniqueIds[currentIndex] = allUsers[currentAddress].uniqueId;
-        currentIndex++;
-
-        for (
-            uint256 i = 0;
-            i < allUsers[currentAddress].referrals.length;
-            i++
-        ) {
-            traverseTeam(
-                allUsers[currentAddress].referrals[i],
-                teamUniqueIds,
-                currentIndex
-            );
-        }
-    }
 }
 
 contract Pro_Power_Matrix is ERC20Upgradeable, Registration {
