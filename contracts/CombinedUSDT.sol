@@ -1,18 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-
 
 contract Registration is Initializable, OwnableUpgradeable {
     struct UserInfo {
         address referrer;
         address[] referrals;
         bool isRegistered;
-        string uniqueId;
-        uint256 timestamp;
+        string userUniqueId;
     }
 
     mapping(address => UserInfo) public allUsers;
@@ -22,7 +19,7 @@ contract Registration is Initializable, OwnableUpgradeable {
     event UserRegistered(
         address indexed user,
         address indexed referrer,
-        uint256 timestamp
+        string uniqueId
     );
 
     function initialize(address initialOwner) public initializer {
@@ -73,16 +70,15 @@ contract Registration is Initializable, OwnableUpgradeable {
         );
         require(!user.isRegistered, "Already registered");
 
-        user.uniqueId = GetIdFromAddress(msg.sender);
+        user.userUniqueId = GetIdFromAddress(msg.sender);
         user.referrer = referrer;
         user.isRegistered = true;
         referrerInfo.referrals.push(msg.sender);
-        user.timestamp = block.timestamp;
 
-        userAddressByUniqueId[user.uniqueId] = msg.sender;
+        userAddressByUniqueId[user.userUniqueId] = msg.sender;
         totalUsers++;
 
-        emit UserRegistered(msg.sender, referrer, block.timestamp);
+        emit UserRegistered(msg.sender, referrer, user.userUniqueId);
     }
 
     function registerByOwner() external onlyOwner {
@@ -90,16 +86,14 @@ contract Registration is Initializable, OwnableUpgradeable {
 
         require(!ownerInfo.isRegistered, "Already registered");
 
-        ownerInfo.uniqueId = GetIdFromAddress(owner());
+        ownerInfo.userUniqueId = GetIdFromAddress(owner());
         ownerInfo.referrer = owner();
         ownerInfo.isRegistered = true;
         ownerInfo.referrals.push(owner());
-        ownerInfo.timestamp = block.timestamp;
-
-        userAddressByUniqueId[ownerInfo.uniqueId] = owner();
+        userAddressByUniqueId[ownerInfo.userUniqueId] = owner();
         totalUsers++;
 
-        emit UserRegistered(owner(), address(0), block.timestamp);
+        emit UserRegistered(owner(), address(0), ownerInfo.userUniqueId);
     }
 
     function findReferrerByUniqueId(string memory referrerUniqueId)
@@ -111,57 +105,9 @@ contract Registration is Initializable, OwnableUpgradeable {
         require(referrerAddress != address(0), "Referrer not found");
         return referrerAddress;
     }
-
-    function getDirectReferrals(string memory uniqueId)
-        external
-        view
-        returns (string[] memory)
-    {
-        address userAddress = userAddressByUniqueId[uniqueId];
-        require(userAddress != address(0), "User not found");
-
-        address[] memory referrals = allUsers[userAddress].referrals;
-        string[] memory referralUniqueIds = new string[](referrals.length);
-
-        for (uint256 i = 0; i < referrals.length; i++) {
-            referralUniqueIds[i] = allUsers[referrals[i]].uniqueId;
-        }
-
-        return referralUniqueIds;
-    }
-
-    function getDirectReferralsCount(string memory uniqueId)
-        external
-        view
-        returns (uint256)
-    {
-        address userAddress = userAddressByUniqueId[uniqueId];
-        require(userAddress != address(0), "User not found");
-
-        return allUsers[userAddress].referrals.length;
-    }
-
-    function getTotalReferralCount(address user)
-        external
-        view
-        returns (uint256 directReferrals, uint256 totalReferrals)
-    {
-        directReferrals = allUsers[user].referrals.length;
-        totalReferrals = countTotalReferrals(user);
-    }
-
-    function countTotalReferrals(address user) internal view returns (uint256) {
-        uint256 totalReferrals = allUsers[user].referrals.length;
-
-        for (uint256 i = 0; i < allUsers[user].referrals.length; i++) {
-            totalReferrals += countTotalReferrals(allUsers[user].referrals[i]);
-        }
-
-        return totalReferrals;
-    }
 }
 
-contract Pro_Power_Matrix is ERC20Upgradeable, Registration {
+contract Pro_Power_Matrix is Registration {
     mapping(address => uint256) public userPackages;
     mapping(address => address) public upline; // Mapping to store upline for each user
     mapping(uint256 => mapping(address => address[])) public downlines;
@@ -181,7 +127,13 @@ contract Pro_Power_Matrix is ERC20Upgradeable, Registration {
     event PackagePurchased(
         address indexed user,
         uint256 packageIndex,
-        uint256 price
+        uint256 price,
+        address upline,
+        address upline1,
+        address upline2,
+        address upline3,
+        address upline4,
+        address upline5
     );
 
     // Declare payable addresses for upline
@@ -223,64 +175,68 @@ contract Pro_Power_Matrix is ERC20Upgradeable, Registration {
         packageInfo.push(Package(3072 * 10**6, 4, 16));
         packageInfo.push(Package(6146 * 10**6, 4, 16));
 
-        // Set initial upline addresses
-        upline1 = payable(owner());
-        upline2 = payable(owner());
-        upline3 = payable(owner());
-        upline4 = payable(owner());
-        upline5 = payable(owner());
-
         RoyaltyContract = payable(_royalty);
     }
 
     receive() external payable {}
 
-    function updateAndSetDistributionAddresses(address currentUpline) internal {
+    function updateAndSetDistributionAddresses(
+        address currentUpline,
+        uint256 packageIndex
+    ) internal {
         address userUpline = currentUpline;
 
-        // Iterate through uplines until a qualified upline is found
-        while (userUpline != address(0)) {
-            if (userPackages[userUpline] >= userPackages[msg.sender]) {
-                break; // Found a qualified upline
+        // Initialize upline1 to the contract owner
+        upline1 = payable(owner());
+
+        uint256 qualifiedUplinesFound = 0;
+
+        // Iterate through uplines until 5 qualified uplines are found or until the user's package index is greater than or equal to the upline's package index
+        while (
+            userUpline != address(0) &&
+            qualifiedUplinesFound < 5 &&
+            userPackages[userUpline] >= packageIndex
+        ) {
+            qualifiedUplinesFound++;
+
+            if (qualifiedUplinesFound == 1) {
+                upline1 = payable(userUpline);
+            } else if (qualifiedUplinesFound == 2) {
+                upline2 = payable(userUpline);
+            } else if (qualifiedUplinesFound == 3) {
+                upline3 = payable(userUpline);
+            } else if (qualifiedUplinesFound == 4) {
+                upline4 = payable(userUpline);
+            } else if (qualifiedUplinesFound == 5) {
+                upline5 = payable(userUpline);
             }
 
             userUpline = upline[userUpline]; // Move up to the next upline
         }
 
-        // If no qualified upline is found, set it to the contract owner
-        if (userUpline == address(0)) {
-            userUpline = payable(owner());
+        // If upline1, upline2, upline3, upline4, or upline5 are not set, set them to the contract owner
+        if (qualifiedUplinesFound < 1) {
+            upline1 = payable(owner());
         }
 
-        // Set uplines 1 to 5
-        upline1 = payable(userUpline);
-        upline2 = payable(upline[upline1]);
-        upline3 = payable(upline[upline2]);
-        upline4 = payable(upline[upline3]);
-        upline5 = payable(upline[upline4]);
-
-        // If upline2, upline3, upline4, or upline5 are not set, set them to the contract owner
-        if (upline2 == address(0)) {
+        if (qualifiedUplinesFound < 2) {
             upline2 = payable(owner());
         }
 
-        if (upline3 == address(0)) {
+        if (qualifiedUplinesFound < 3) {
             upline3 = payable(owner());
         }
 
-        if (upline4 == address(0)) {
+        if (qualifiedUplinesFound < 4) {
             upline4 = payable(owner());
         }
 
-        if (upline5 == address(0)) {
+        if (qualifiedUplinesFound < 5) {
             upline5 = payable(owner());
         }
     }
 
-    function purchasePackage(uint256 packageIndex, address upline1Address)
-        external
-        payable
-    {
+    function purchasePackage(uint256 packageIndex) external {
         require(packageIndex < packageInfo.length, "Invalid package index");
 
         uint256 currentPackageIndex = userPackages[msg.sender];
@@ -292,39 +248,46 @@ contract Pro_Power_Matrix is ERC20Upgradeable, Registration {
         );
 
         uint256 packagePrice = packageInfo[packageIndex].price;
-        require(
-            msg.value >= packagePrice,
-            "Insufficient USDT sent for package purchase"
-        );
+
+        // Approve USDT transfer from user to contract
+        IERC20(usdtToken).approve(address(this), packagePrice);
+
+        // Transfer USDT from the user to the contract
+        IERC20(usdtToken).transferFrom(msg.sender, address(this), packagePrice);
 
         // Check if the user is registered
         require(allUsers[msg.sender].isRegistered, "User is not registered");
 
+        address referrerAddress = allUsers[msg.sender].referrer;
+
+        // Check if the referrer address is valid
+        require(referrerAddress != address(0), "Referrer not found");
+
         // Check the maximum allowed direct downlines and secondary downlines
         require(
-            secondLayerDownlines[packageIndex][upline1Address].length <
+            secondLayerDownlines[packageIndex][referrerAddress].length <
                 packageInfo[packageIndex].maxSecondaryDownlines,
             "Exceeded secondary downlines limit"
         );
 
         // Update upline and downlines mappings
-        upline[msg.sender] = upline1Address;
+        upline[msg.sender] = referrerAddress;
 
         // Check if the specified upline already has 4 downlines
         if (
-            downlines[packageIndex][upline1Address].length <
+            downlines[packageIndex][referrerAddress].length <
             packageInfo[packageIndex].maxDirectDownlines
         ) {
-            downlines[packageIndex][upline1Address].push(msg.sender);
-            upline[msg.sender] = upline1Address;
+            downlines[packageIndex][referrerAddress].push(msg.sender);
+            upline[msg.sender] = referrerAddress;
         } else {
             for (
                 uint256 i = 0;
-                i < downlines[packageIndex][upline1Address].length;
+                i < downlines[packageIndex][referrerAddress].length;
                 i++
             ) {
                 address downlineAddress = downlines[packageIndex][
-                    upline1Address
+                    referrerAddress
                 ][i];
                 if (
                     downlines[packageIndex][downlineAddress].length <
@@ -336,10 +299,8 @@ contract Pro_Power_Matrix is ERC20Upgradeable, Registration {
             }
         }
 
-        address current = upline[msg.sender];
-
         // Set upline addresses
-        updateAndSetDistributionAddresses(current);
+        updateAndSetDistributionAddresses(referrerAddress, packageIndex);
 
         // Distribute 2 USDT among levels 1 to 5 (deducted from the package price)
         distribute2USDT();
@@ -348,10 +309,10 @@ contract Pro_Power_Matrix is ERC20Upgradeable, Registration {
         uint256 remainingAmount = packagePrice - 2 * 10**6;
 
         // Transfer USDT to upline1
-        payable(upline1).transfer(remainingAmount / 2);
+        IERC20(usdtToken).transfer(upline1, remainingAmount / 2);
 
         address[] storage secondLayer = secondLayerDownlines[packageIndex][
-            upline2
+            upline[referrerAddress]
         ];
         uint256 i = secondLayer.length;
 
@@ -359,14 +320,17 @@ contract Pro_Power_Matrix is ERC20Upgradeable, Registration {
         if (secondLayer.length >= 16) {
             if (1 <= i && i <= 3) {
                 // Distribute to RoyaltyContract for the first 3 downlines
-                payable(RoyaltyContract).transfer(remainingAmount / 2);
+                IERC20(usdtToken).transfer(
+                    RoyaltyContract,
+                    remainingAmount / 2
+                );
             } else if (4 <= i && i <= 14) {
                 // Distribute to upline2 for downlines 4 to 13
-                payable(upline2).transfer(remainingAmount / 2);
+                IERC20(usdtToken).transfer(upline2, remainingAmount / 2);
             } else if (15 <= i && i <= 16) {
                 // Distribute to upline1 and upline2 for downlines 14 and 15
-                payable(upline1).transfer(remainingAmount / 4);
-                payable(upline2).transfer(remainingAmount / 4);
+                IERC20(usdtToken).transfer(upline1, remainingAmount / 4);
+                IERC20(usdtToken).transfer(upline2, remainingAmount / 4);
             }
         }
 
@@ -374,22 +338,32 @@ contract Pro_Power_Matrix is ERC20Upgradeable, Registration {
         userPackages[msg.sender] = packageIndex;
 
         // Add the user to the second layer downlines of their upline for the specific package
-        if (upline[upline1Address] != address(0)) {
-            secondLayerDownlines[packageIndex][upline[upline1Address]].push(
+        if (upline[referrerAddress] != address(0)) {
+            secondLayerDownlines[packageIndex][upline[referrerAddress]].push(
                 msg.sender
             );
 
             if (
-                secondLayerDownlines[packageIndex][upline[upline1Address]]
+                secondLayerDownlines[packageIndex][upline[referrerAddress]]
                     .length == packageInfo[packageIndex].maxSecondaryDownlines
             ) {
                 // Clear downlines and secondLayerDownlines for the upline and specific package
-                clearDownlines(upline[upline1Address]);
-                clearSecondLayerDownlines(upline[upline1Address]);
+                clearDownlines(upline[referrerAddress]);
+                clearSecondLayerDownlines(upline[referrerAddress]);
             }
         }
 
-        emit PackagePurchased(msg.sender, packageIndex, packagePrice);
+        emit PackagePurchased(
+            msg.sender,
+            packageIndex,
+            packagePrice,
+            referrerAddress,
+            upline1,
+            upline2,
+            upline3,
+            upline4,
+            upline5
+        );
     }
 
     function distribute2USDT() internal {
@@ -416,10 +390,6 @@ contract Pro_Power_Matrix is ERC20Upgradeable, Registration {
             upline5,
             (usdtToDistribute * upline5_PERCENTAGE) / 100
         );
-    }
-
-    function getUserPackage(address user) external view returns (uint256) {
-        return userPackages[user];
     }
 
     function getSecondLayerDownlines(address user)
@@ -460,77 +430,6 @@ contract Pro_Power_Matrix is ERC20Upgradeable, Registration {
         }
     }
 
-    function getTotalPurchases() external view returns (uint256) {
-        uint256 totalPurchases = 0;
-
-        // Iterate through all users
-        for (uint256 i = 0; i < packageInfo.length; i++) {
-            address[] storage userAddresses = downlines[i][owner()];
-
-            // Iterate through downlines of the owner (contract creator)
-            for (uint256 j = 0; j < userAddresses.length; j++) {
-                address user = userAddresses[j];
-                totalPurchases += packageInfo[userPackages[user]].price;
-            }
-        }
-
-        return totalPurchases;
-    }
-
-    function getTop10Earners()
-        external
-        view
-        returns (
-            address[10] memory topEarners,
-            uint256[10] memory highestEarnings
-        )
-    {
-        for (uint256 i = 0; i < packageInfo.length; i++) {
-            address[] storage userAddresses = downlines[i][owner()];
-
-            for (uint256 j = 0; j < userAddresses.length; j++) {
-                address user = userAddresses[j];
-                uint256 userEarnings = calculateUserEarnings(user);
-
-                // Check if the user should be included in the top earners list
-                for (uint256 k = 0; k < 10; k++) {
-                    if (userEarnings > highestEarnings[k]) {
-                        // Shift down the existing earners to make room for the new one
-                        for (uint256 l = 9; l > k; l--) {
-                            topEarners[l] = topEarners[l - 1];
-                            highestEarnings[l] = highestEarnings[l - 1];
-                        }
-
-                        // Insert the new top earner
-                        topEarners[k] = user;
-                        highestEarnings[k] = userEarnings;
-
-                        // Break the inner loop as the user is already inserted
-                        break;
-                    }
-                }
-            }
-        }
-
-        return (topEarners, highestEarnings);
-    }
-
-    function calculateUserEarnings(address user)
-        internal
-        view
-        returns (uint256)
-    {
-        uint256 totalEarnings = 0;
-
-        // Add user's direct and secondary earnings
-        totalEarnings += ((2 * 10**6) * upline1_PERCENTAGE) / 100; // Direct earnings
-        totalEarnings += ((2 * 10**6) * upline2_PERCENTAGE) / 100; // Secondary earnings (upline2)
-
-        // Add additional earnings based on your business logic
-
-        return totalEarnings;
-    }
-
     function addUserToDirectDownlineAndProvidePackage(
         address user,
         uint256 packageIndex
@@ -547,13 +446,6 @@ contract Pro_Power_Matrix is ERC20Upgradeable, Registration {
 
         // Update user's package index
         userPackages[user] = packageIndex;
-
-        // Emit an event for the package purchase
-        emit PackagePurchased(
-            user,
-            packageIndex,
-            packageInfo[packageIndex].price
-        );
     }
 
     function ownerBuysAllPackages() external onlyOwner {
@@ -561,9 +453,6 @@ contract Pro_Power_Matrix is ERC20Upgradeable, Registration {
         for (uint256 i = 0; i < packageInfo.length; i++) {
             // Update user's package index
             userPackages[owner()] = i;
-
-            // Emit an event for the package purchase
-            emit PackagePurchased(owner(), i, packageInfo[i].price);
         }
     }
 }
