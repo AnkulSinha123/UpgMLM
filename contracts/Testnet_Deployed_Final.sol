@@ -249,8 +249,8 @@ contract Pro_Power_Matrix is Registration {
 
         uint256 packagePrice = packageInfo[packageIndex].price;
 
-        // // Approve USDT transfer from user to contract
-        // IERC20(usdtToken).approve(address(this), packagePrice);
+        // Approve USDT transfer from user to contract
+        IERC20(usdtToken).approve(address(this), packagePrice);
 
         // Transfer USDT from the user to the contract
         IERC20(usdtToken).transferFrom(msg.sender, address(this), packagePrice);
@@ -265,7 +265,7 @@ contract Pro_Power_Matrix is Registration {
 
         // Check the maximum allowed direct downlines and secondary downlines
         require(
-            secondLayerDownlines[packageIndex][referrerAddress].length <
+            secondLayerDownlines[packageIndex][upline[referrerAddress]].length <
                 packageInfo[packageIndex].maxSecondaryDownlines,
             "Exceeded secondary downlines limit"
         );
@@ -311,34 +311,10 @@ contract Pro_Power_Matrix is Registration {
         // Transfer USDT to upline1
         IERC20(usdtToken).transfer(upline1, remainingAmount / 2);
 
-        address[] storage secondLayer = secondLayerDownlines[packageIndex][
-            upline[referrerAddress]
-        ];
-        uint256 i = secondLayer.length;
-
-        // Assuming secondLayer has at least 16 elements
-        if (secondLayer.length <= 16) {
-            if (0 <= i && i <= 2) {
-                // Distribute to RoyaltyContract for the first 3 downlines
-                IERC20(usdtToken).transfer(
-                    RoyaltyContract,
-                    remainingAmount / 2
-                );
-            } else if (3 <= i && i <= 13) {
-                // Distribute to upline2 for downlines 4 to 13
-                IERC20(usdtToken).transfer(upline2, remainingAmount / 2);
-            } else if (14 <= i && i <= 15) {
-                // Distribute to upline1 and upline2 for downlines 14 and 15
-                IERC20(usdtToken).transfer(upline1, remainingAmount / 4);
-                IERC20(usdtToken).transfer(upline2, remainingAmount / 4);
-            }
-        }
-
-        // Remove the user from the downlines of their previous upline
-        userPackages[msg.sender] = packageIndex;
+        distributeUSDT(referrerAddress, remainingAmount / 2, packageIndex);
 
         // Add the user to the second layer downlines of their upline for the specific package
-        if (upline[referrerAddress] != address(0)) {
+        if (upline[msg.sender] != address(0)) {
             secondLayerDownlines[packageIndex][upline[referrerAddress]].push(
                 msg.sender
             );
@@ -349,9 +325,12 @@ contract Pro_Power_Matrix is Registration {
             ) {
                 // Clear downlines and secondLayerDownlines for the upline and specific package
                 clearDownlines(upline[referrerAddress]);
-                clearSecondLayerDownlines(upline[referrerAddress]);
+                clearSecondLayerDownlines(referrerAddress);
             }
         }
+
+        // Remove the user from the downlines of their previous upline
+        userPackages[msg.sender] = packageIndex;
 
         emit PackagePurchased(
             msg.sender,
@@ -401,7 +380,7 @@ contract Pro_Power_Matrix is Registration {
     }
 
     // Function to clear downlines for the specified upline and package
-    function clearDownlines(address uplineAddress) internal onlyOwner {
+    function clearDownlines(address uplineAddress) internal {
         address[] storage directDownlines = downlines[
             userPackages[uplineAddress]
         ][uplineAddress];
@@ -415,16 +394,40 @@ contract Pro_Power_Matrix is Registration {
         }
     }
 
+    function distributeUSDT(
+        address referrerAddress,
+        uint256 amountToDistribute,
+        uint256 packageIndex
+    ) internal {
+        address[] storage secondLayer = secondLayerDownlines[packageIndex][
+            upline[referrerAddress]
+        ];
+        uint256 i = secondLayer.length;
+        // Distribute USDT according to the conditions
+        if (secondLayer.length <= 16) {
+            if (i >= 0 && i <= 2) {
+                // Distribute to RoyaltyContract for the first 3 downlines
+                IERC20(usdtToken).transfer(RoyaltyContract, amountToDistribute);
+            } else if (i >= 3 && i <= 13) {
+                // Distribute to upline2 for downlines 4 to 13
+                IERC20(usdtToken).transfer(upline2, amountToDistribute);
+            } else if (i >= 14 && i <= 15) {
+                // Distribute to upline1 and upline2 for downlines 14 and 15
+                IERC20(usdtToken).transfer(upline1, amountToDistribute / 2);
+                IERC20(usdtToken).transfer(upline2, amountToDistribute / 2);
+            }
+        }
+    }
+
     // Function to clear secondLayerDownlines for the specified upline and package
-    function clearSecondLayerDownlines(address uplineAddress)
-        internal
-        onlyOwner
-    {
-        delete secondLayerDownlines[userPackages[uplineAddress]][uplineAddress];
+    function clearSecondLayerDownlines(address uplineAddress) internal {
+        delete secondLayerDownlines[userPackages[upline[uplineAddress]]][
+            upline[uplineAddress]
+        ];
 
         address[] storage secondLayer = secondLayerDownlines[
-            userPackages[uplineAddress]
-        ][uplineAddress];
+            userPackages[upline[uplineAddress]]
+        ][upline[uplineAddress]];
         for (uint256 i = 0; i < secondLayer.length; i++) {
             delete userPackages[secondLayer[i]];
         }
