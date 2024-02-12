@@ -2,17 +2,17 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("Ether MLM Contract", function () {
-  let EtherMLMContract;
+  let Testnet_Deployed_Final;
   let etherMLM;
   let owner;
   let user1;
   let user2;
 
   beforeEach(async function () {
-    EtherMLMContract = await ethers.getContractFactory("Ether_MLMContract");
+    Testnet_Deployed_Final = await ethers.getContractFactory("Ether_MLMContract");
     [owner, user1, user2] = await ethers.getSigners();
 
-    etherMLM = await upgrades.deployProxy(EtherMLMContract, [owner.address, owner.address]);
+    etherMLM = await upgrades.deployProxy(Testnet_Deployed_Final, [owner.address, owner.address]);
     await etherMLM.waitForDeployment();
   });
 

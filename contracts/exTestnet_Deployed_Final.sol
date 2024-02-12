@@ -133,7 +133,9 @@ contract Pro_Power_Matrix is Registration {
         address upline2,
         address upline3,
         address upline4,
-        address upline5
+        address upline5,
+        address indexed recipient,
+        uint256 distributeUSDT
     );
 
     // Declare payable addresses for upline
@@ -331,18 +333,6 @@ contract Pro_Power_Matrix is Registration {
 
         // Remove the user from the downlines of their previous upline
         userPackages[msg.sender] = packageIndex;
-
-        emit PackagePurchased(
-            msg.sender,
-            packageIndex,
-            packagePrice,
-            referrerAddress,
-            upline1,
-            upline2,
-            upline3,
-            upline4,
-            upline5
-        );
     }
 
     function distribute2USDT() internal {
@@ -371,6 +361,44 @@ contract Pro_Power_Matrix is Registration {
         );
     }
 
+    function distributeUSDT(
+        address referrerAddress,
+        uint256 amountToDistribute,
+        uint256 packageIndex
+    ) internal {
+        address[] storage secondLayer = secondLayerDownlines[packageIndex][
+            upline[referrerAddress]
+        ];
+        uint256 i = secondLayer.length;
+        uint256 packagePrice = packageInfo[packageIndex].price;
+        // Distribute USDT according to the conditions
+        if (secondLayer.length <= 15) {
+            if (i >= 0 && i <= 2) {
+                // Distribute to RoyaltyContract for the first 3 downlines
+                IERC20(usdtToken).transfer(RoyaltyContract, amountToDistribute);
+                emit PackagePurchased(msg.sender, packageIndex, packagePrice, referrerAddress, upline1, upline2, upline3, upline4, upline5, RoyaltyContract, amountToDistribute);
+            } else if (i >= 3 && i <= 13) {
+                // Distribute to upline2 for downlines 4 to 13
+                IERC20(usdtToken).transfer(upline2, amountToDistribute);
+                emit PackagePurchased(msg.sender, packageIndex, packagePrice, referrerAddress, upline1, upline2, upline3, upline4, upline5, upline2, amountToDistribute);
+            } else if (i >= 14 && i <= 15) {
+                uint256 halfAmount = amountToDistribute / 2;
+                // Distribute to upline1 and upline2 for downlines 14 and 15
+                IERC20(usdtToken).transfer(upline3, halfAmount);
+                emit PackagePurchased(msg.sender, packageIndex, packagePrice, referrerAddress, upline1, upline2, upline3, upline4, upline5, upline3, halfAmount);
+                IERC20(usdtToken).transfer(upline4, halfAmount);
+                emit PackagePurchased(msg.sender, packageIndex, packagePrice, referrerAddress, upline1, upline2, upline3, upline4, upline5, upline4, halfAmount);
+            }else if (i >= 14 && i <= 15) {
+                uint256 halfAmount = amountToDistribute / 2;
+                // Distribute to upline1 and upline2 for downlines 14 and 15
+                IERC20(usdtToken).transfer(upline3, halfAmount);
+                emit PackagePurchased(msg.sender, packageIndex, packagePrice, referrerAddress, upline1, upline2, upline3, upline4, upline5, upline3, halfAmount);
+                IERC20(usdtToken).transfer(upline4, halfAmount);
+                emit PackagePurchased(msg.sender, packageIndex, packagePrice, referrerAddress, upline1, upline2, upline3, upline4, upline5, upline4, halfAmount);
+            }
+        }
+    }
+
     function getSecondLayerDownlines(address user)
         external
         view
@@ -391,31 +419,6 @@ contract Pro_Power_Matrix is Registration {
         // Clear userPackages for downlines of the specified upline and package
         for (uint256 i = 0; i < directDownlines.length; i++) {
             delete userPackages[directDownlines[i]];
-        }
-    }
-
-    function distributeUSDT(
-        address referrerAddress,
-        uint256 amountToDistribute,
-        uint256 packageIndex
-    ) internal {
-        address[] storage secondLayer = secondLayerDownlines[packageIndex][
-            upline[referrerAddress]
-        ];
-        uint256 i = secondLayer.length;
-        // Distribute USDT according to the conditions
-        if (secondLayer.length <= 16) {
-            if (i >= 0 && i <= 2) {
-                // Distribute to RoyaltyContract for the first 3 downlines
-                IERC20(usdtToken).transfer(RoyaltyContract, amountToDistribute);
-            } else if (i >= 3 && i <= 13) {
-                // Distribute to upline2 for downlines 4 to 13
-                IERC20(usdtToken).transfer(upline2, amountToDistribute);
-            } else if (i >= 14 && i <= 15) {
-                // Distribute to upline1 and upline2 for downlines 14 and 15
-                IERC20(usdtToken).transfer(upline1, amountToDistribute / 2);
-                IERC20(usdtToken).transfer(upline2, amountToDistribute / 2);
-            }
         }
     }
 
