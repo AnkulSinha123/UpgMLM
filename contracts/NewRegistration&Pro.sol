@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
 contract Registration is Initializable, OwnableUpgradeable {
     struct UserInfo {
@@ -128,14 +129,14 @@ contract Pro_Power_Matrix is Registration {
         address indexed user,
         uint256 packageIndex,
         uint256 price,
-        address upline,
         address upline1,
         address upline2,
         address upline3,
         address upline4,
         address upline5,
-        address indexed recipient,
-        uint256 distributeUSDT
+        bool royalty,
+        bool uplineOfUpline,
+        bool recycle
     );
 
     // Declare payable addresses for upline
@@ -265,16 +266,6 @@ contract Pro_Power_Matrix is Registration {
         // Check if the referrer address is valid
         require(referrerAddress != address(0), "Referrer not found");
 
-        // Check the maximum allowed direct downlines and secondary downlines
-        require(
-            secondLayerDownlines[packageIndex][upline[referrerAddress]].length <
-                packageInfo[packageIndex].maxSecondaryDownlines,
-            "Exceeded secondary downlines limit"
-        );
-
-        // Update upline and downlines mappings
-        upline[msg.sender] = referrerAddress;
-
         // Check if the specified upline already has 4 downlines
         if (
             downlines[packageIndex][referrerAddress].length <
@@ -282,6 +273,9 @@ contract Pro_Power_Matrix is Registration {
         ) {
             downlines[packageIndex][referrerAddress].push(msg.sender);
             upline[msg.sender] = referrerAddress;
+            secondLayerDownlines[packageIndex][upline[referrerAddress]].push(
+                msg.sender
+            );
         } else {
             for (
                 uint256 i = 0;
@@ -297,6 +291,9 @@ contract Pro_Power_Matrix is Registration {
                 ) {
                     downlines[packageIndex][downlineAddress].push(msg.sender);
                     upline[msg.sender] = downlineAddress;
+                    secondLayerDownlines[packageIndex][referrerAddress].push(
+                        msg.sender
+                    );
                 }
             }
         }
@@ -315,22 +312,97 @@ contract Pro_Power_Matrix is Registration {
 
         distributeUSDT(referrerAddress, remainingAmount / 2, packageIndex);
 
-        // Add the user to the second layer downlines of their upline for the specific package
-        if (upline[msg.sender] != address(0)) {
-            secondLayerDownlines[packageIndex][upline[referrerAddress]].push(
-                msg.sender
-            );
+        // Check if the maximum secondary downlines limit is reached
+        if (
+            secondLayerDownlines[packageIndex][upline[referrerAddress]]
+                .length == packageInfo[packageIndex].maxSecondaryDownlines
+        ) {
+            // Find the upline of upline2
+            address uplineOfUpline2 = upline[upline[referrerAddress]];
+
+            // Check if uplineOfUpline2 exists and has less than 4 downlines
+            if (
+                uplineOfUpline2 != address(0) &&
+                downlines[packageIndex][uplineOfUpline2].length <
+                packageInfo[packageIndex].maxDirectDownlines
+            ) {
+                // Add upline2 to the direct downlines of uplineOfUpline2
+                downlines[packageIndex][uplineOfUpline2].push(
+                    upline[referrerAddress]
+                );
+                upline[upline[referrerAddress]] = uplineOfUpline2;
+                secondLayerDownlines[packageIndex][upline[uplineOfUpline2]]
+                    .push(upline[referrerAddress]);
+            } else {
+                // If uplineOfUpline2 already has 4 downlines, find its downline which has less than 4 downlines
+                for (
+                    uint256 i = 0;
+                    i < downlines[packageIndex][uplineOfUpline2].length;
+                    i++
+                ) {
+                    address downlineOfUpline2 = downlines[packageIndex][
+                        uplineOfUpline2
+                    ][i];
+                    if (
+                        downlines[packageIndex][downlineOfUpline2].length <
+                        packageInfo[packageIndex].maxDirectDownlines
+                    ) {
+                        // Add upline2 to the direct downlines of downlineOfUpline2
+                        downlines[packageIndex][downlineOfUpline2].push(
+                            upline[referrerAddress]
+                        );
+                        upline[upline[referrerAddress]] = downlineOfUpline2;
+                        secondLayerDownlines[packageIndex][
+                            upline[downlineOfUpline2]
+                        ].push(upline[referrerAddress]);
+                        break;
+                    }
+                }
+            }
 
             if (
                 secondLayerDownlines[packageIndex][upline[referrerAddress]]
                     .length == packageInfo[packageIndex].maxSecondaryDownlines
             ) {
-                // Clear downlines and secondLayerDownlines for the upline and specific package
-                clearDownlines(upline[referrerAddress]);
-                clearSecondLayerDownlines(referrerAddress);
+                emit PackagePurchased(
+                    msg.sender,
+                    packageIndex,
+                    packagePrice,
+                    upline1,
+                    upline2,
+                    upline3,
+                    upline4,
+                    upline5,
+                    false,
+                    false,
+                    true
+                );
+                updateAndSetDistributionAddresses(
+                    uplineOfUpline2,
+                    packageIndex
+                );
+                // Distribute to upline3 and upline4 for 15
+                IERC20(usdtToken).transfer(upline1, remainingAmount / 2);
+                IERC20(usdtToken).transfer(upline2, remainingAmount / 2);
+                emit PackagePurchased(
+                    upline[referrerAddress],
+                    packageIndex,
+                    packagePrice,
+                    upline1,
+                    upline2,
+                    address(9),
+                    address(0),
+                    address(0),
+                    false,
+                    false,
+                    true
+                );
             }
-        }
 
+            // Clear downlines and secondLayerDownlines for the upline and specific package
+            clearDownlines(upline[referrerAddress]);
+            clearSecondLayerDownlines(referrerAddress);
+        }
         // Remove the user from the downlines of their previous upline
         userPackages[msg.sender] = packageIndex;
     }
@@ -372,29 +444,57 @@ contract Pro_Power_Matrix is Registration {
         uint256 i = secondLayer.length;
         uint256 packagePrice = packageInfo[packageIndex].price;
         // Distribute USDT according to the conditions
-        if (secondLayer.length <= 15) {
+        if (secondLayer.length <= 14) {
             if (i >= 0 && i <= 2) {
                 // Distribute to RoyaltyContract for the first 3 downlines
                 IERC20(usdtToken).transfer(RoyaltyContract, amountToDistribute);
-                emit PackagePurchased(msg.sender, packageIndex, packagePrice, referrerAddress, upline1, upline2, upline3, upline4, upline5, RoyaltyContract, amountToDistribute);
+                emit PackagePurchased(
+                    msg.sender,
+                    packageIndex,
+                    packagePrice,
+                    upline1,
+                    upline2,
+                    upline3,
+                    upline4,
+                    upline5,
+                    true,
+                    false,
+                    false
+                );
             } else if (i >= 3 && i <= 13) {
                 // Distribute to upline2 for downlines 4 to 13
                 IERC20(usdtToken).transfer(upline2, amountToDistribute);
-                emit PackagePurchased(msg.sender, packageIndex, packagePrice, referrerAddress, upline1, upline2, upline3, upline4, upline5, upline2, amountToDistribute);
-            } else if (i >= 14 && i <= 15) {
+                emit PackagePurchased(
+                    msg.sender,
+                    packageIndex,
+                    packagePrice,
+                    upline1,
+                    upline2,
+                    upline3,
+                    upline4,
+                    upline5,
+                    false,
+                    true,
+                    false
+                );
+            } else if (i == 14) {
                 uint256 halfAmount = amountToDistribute / 2;
-                // Distribute to upline1 and upline2 for downlines 14 and 15
-                IERC20(usdtToken).transfer(upline3, halfAmount);
-                emit PackagePurchased(msg.sender, packageIndex, packagePrice, referrerAddress, upline1, upline2, upline3, upline4, upline5, upline3, halfAmount);
-                IERC20(usdtToken).transfer(upline4, halfAmount);
-                emit PackagePurchased(msg.sender, packageIndex, packagePrice, referrerAddress, upline1, upline2, upline3, upline4, upline5, upline4, halfAmount);
-            }else if (i >= 14 && i <= 15) {
-                uint256 halfAmount = amountToDistribute / 2;
-                // Distribute to upline1 and upline2 for downlines 14 and 15
-                IERC20(usdtToken).transfer(upline3, halfAmount);
-                emit PackagePurchased(msg.sender, packageIndex, packagePrice, referrerAddress, upline1, upline2, upline3, upline4, upline5, upline3, halfAmount);
-                IERC20(usdtToken).transfer(upline4, halfAmount);
-                emit PackagePurchased(msg.sender, packageIndex, packagePrice, referrerAddress, upline1, upline2, upline3, upline4, upline5, upline4, halfAmount);
+                // Distribute to upline3 and upline4 for downlines 14
+                IERC20(usdtToken).transfer(address(this), halfAmount);
+                IERC20(usdtToken).transfer(address(this), halfAmount);
+                emit PackagePurchased(
+                    msg.sender,
+                    packageIndex,
+                    packagePrice,
+                    upline1,
+                    upline2,
+                    upline3,
+                    upline4,
+                    upline5,
+                    false,
+                    false,
+                    true
+                );
             }
         }
     }
