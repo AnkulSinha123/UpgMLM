@@ -4,8 +4,9 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "./Registration.sol";
 
-contract Registration is Initializable, OwnableUpgradeable {
+interface RegistrationInterface {
     struct UserInfo {
         address referrer;
         address[] referrals;
@@ -13,107 +14,20 @@ contract Registration is Initializable, OwnableUpgradeable {
         string userUniqueId;
     }
 
-    mapping(address => UserInfo) public allUsers;
-    mapping(string => address) public userAddressByUniqueId;
-    uint256 public totalUsers;
-
-    event UserRegistered(
-        address indexed user,
-        address indexed referrer,
-        string uniqueId
-    );
-
-    function initialize(address initialOwner) public initializer {
-        __Ownable_init(initialOwner);
-    }
-
-    function GetIdFromAddress(address user)
-        public
-        pure
-        returns (string memory)
-    {
-        return toString(uint160(user) % 1e10);
-    }
-
-    function toString(uint256 value) internal pure returns (string memory) {
-        if (value == 0) {
-            return "0";
-        }
-
-        uint256 temp = value;
-        uint256 digits;
-
-        while (temp != 0) {
-            digits++;
-            temp /= 10;
-        }
-
-        bytes memory buffer = new bytes(digits);
-
-        for (uint256 i = 0; i < digits; i++) {
-            buffer[i] = bytes1(
-                uint8(48 + ((value / 10**(digits - 1 - i)) % 10))
-            );
-        }
-
-        return string(buffer);
-    }
-
-    function registerUser(string memory referrerUniqueId) external {
-        address referrer = findReferrerByUniqueId(referrerUniqueId);
-
-        UserInfo storage user = allUsers[msg.sender];
-        UserInfo storage referrerInfo = allUsers[referrer];
-
-        require(
-            referrerInfo.isRegistered || referrer == owner(),
-            "Not registered"
-        );
-        require(!user.isRegistered, "Already registered");
-
-        user.userUniqueId = GetIdFromAddress(msg.sender);
-        user.referrer = referrer;
-        user.isRegistered = true;
-        referrerInfo.referrals.push(msg.sender);
-
-        userAddressByUniqueId[user.userUniqueId] = msg.sender;
-        totalUsers++;
-
-        emit UserRegistered(msg.sender, referrer, user.userUniqueId);
-    }
-
-    function registerByOwner() external onlyOwner {
-        UserInfo storage ownerInfo = allUsers[owner()];
-
-        require(!ownerInfo.isRegistered, "Already registered");
-
-        ownerInfo.userUniqueId = GetIdFromAddress(owner());
-        ownerInfo.referrer = owner();
-        ownerInfo.isRegistered = true;
-        ownerInfo.referrals.push(owner());
-        userAddressByUniqueId[ownerInfo.userUniqueId] = owner();
-        totalUsers++;
-
-        emit UserRegistered(owner(), address(0), ownerInfo.userUniqueId);
-    }
-
-    function findReferrerByUniqueId(string memory referrerUniqueId)
-        internal
+    function getUserInfo(address _address)
+        external
         view
-        returns (address)
-    {
-        address referrerAddress = userAddressByUniqueId[referrerUniqueId];
-        require(referrerAddress != address(0), "Referrer not found");
-        return referrerAddress;
-    }
+        returns (UserInfo memory);
 }
 
-contract Pro_Power_Matrix is Registration {
-    mapping(address => uint256) public userPackages;
-    mapping(address => address) public upline; // Mapping to store upline for each user
-    mapping(uint256 => mapping(address => address[])) public downlines;
-    mapping(uint256 => mapping(address => address[]))
-        public secondLayerDownlines;
+contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
+
+    struct UserInfo {
+        address referrer;
+        address[] referrals;
+        bool isRegistered;
+        string userUniqueId;
+    }
 
     // Add a struct to hold the package information
     struct Package {
@@ -124,6 +38,28 @@ contract Pro_Power_Matrix is Registration {
 
     // Declare an array to store package information
     Package[] public packageInfo;
+    
+    mapping(address => uint256) public userPackages;
+    mapping(address => address) public upline; // Mapping to store upline for each user
+    mapping(uint256 => mapping(address => address[])) public downlines;
+    mapping(uint256 => mapping(address => address[])) public secondLayerDownlines; 
+
+    // Declare payable addresses for upline
+    address payable public upline1;
+    address payable public upline2;
+    address payable public upline3;
+    address payable public upline4;
+    address payable public upline5;
+
+    address payable public RoyaltyContract;
+    address public usdtToken;
+
+    // Constants for distribution percentages
+    uint256 private constant upline1_PERCENTAGE = 40;
+    uint256 private constant upline2_PERCENTAGE = 25;
+    uint256 private constant upline3_PERCENTAGE = 15;
+    uint256 private constant upline4_PERCENTAGE = 10;
+    uint256 private constant upline5_PERCENTAGE = 10;
 
     event PackagePurchased(
         address indexed user,
@@ -138,23 +74,7 @@ contract Pro_Power_Matrix is Registration {
         bool recycle
     );
 
-    // Declare payable addresses for upline
-    address payable public upline1;
-    address payable public upline2;
-    address payable public upline3;
-    address payable public upline4;
-    address payable public upline5;
-
-    address payable public RoyaltyContract;
-
-    // Constants for distribution percentages
-    uint256 private constant upline1_PERCENTAGE = 40;
-    uint256 private constant upline2_PERCENTAGE = 25;
-    uint256 private constant upline3_PERCENTAGE = 15;
-    uint256 private constant upline4_PERCENTAGE = 10;
-    uint256 private constant upline5_PERCENTAGE = 10;
-
-    address public usdtToken; // USDT token address
+    RegistrationInterface public registration;
 
     function initialize(
         address initialOwner,
@@ -163,6 +83,7 @@ contract Pro_Power_Matrix is Registration {
     ) external initializer {
         __Ownable_init(initialOwner);
         usdtToken = _usdtToken;
+        RoyaltyContract = payable(_royalty);
 
         packageInfo.push(Package(5 * 10**6, 4, 16));
         packageInfo.push(Package(8 * 10**6, 4, 16));
@@ -176,11 +97,32 @@ contract Pro_Power_Matrix is Registration {
         packageInfo.push(Package(1538 * 10**6, 4, 16));
         packageInfo.push(Package(3072 * 10**6, 4, 16));
         packageInfo.push(Package(6146 * 10**6, 4, 16));
-
-        RoyaltyContract = payable(_royalty);
     }
 
     receive() external payable {}
+
+    function setRegistration(address _registrationAddress) external onlyOwner {
+        registration = RegistrationInterface(_registrationAddress);
+    }
+
+    // Function to fetch user information from Registration contract
+    function getUserInfo(address user) public view returns (UserInfo memory) {
+        // Call the getUserInfo function from Registration contract
+        RegistrationInterface registration = RegistrationInterface(
+            registration
+        );
+        RegistrationInterface.UserInfo memory userInfoInterface = registration
+            .getUserInfo(user);
+
+        // Convert the returned UserInfo from Registration contract to local UserInfo struct
+        UserInfo memory userInfo;
+        userInfo.referrer = userInfoInterface.referrer;
+        userInfo.referrals = userInfoInterface.referrals;
+        userInfo.isRegistered = userInfoInterface.isRegistered;
+        userInfo.userUniqueId = userInfoInterface.userUniqueId;
+
+        return userInfo;
+    }
 
     function updateAndSetDistributionAddresses(
         address currentUpline,
@@ -258,9 +200,9 @@ contract Pro_Power_Matrix is Registration {
         IERC20(usdtToken).transferFrom(msg.sender, address(this), packagePrice);
 
         // Check if the user is registered
-        require(allUsers[msg.sender].isRegistered, "User is not registered");
+        require(getUserInfo(msg.sender).isRegistered, "User is not registered");
 
-        address referrerAddress = allUsers[msg.sender].referrer;
+        address referrerAddress = getUserInfo(msg.sender).referrer;
 
         // Check if the referrer address is valid
         require(referrerAddress != address(0), "Referrer not found");
