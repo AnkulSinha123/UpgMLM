@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./Registration.sol";
 
 interface RegistrationInterface {
@@ -20,7 +18,7 @@ interface RegistrationInterface {
         returns (UserInfo memory);
 }
 
-contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
+contract Pro_Power_Matrix {
     struct UserInfo {
         address referrer;
         address[] referrals;
@@ -28,21 +26,14 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
         string userUniqueId;
     }
 
-    // Add a struct to hold the package information
-    struct Package {
-        uint256 price;
-        uint256 maxDirectDownlines;
-        uint256 maxSecondaryDownlines;
-    }
-
-    // Declare an array to store package information
-    Package[] public packageInfo;
+    uint256[] public packagePrices;
 
     mapping(address => uint256) public userPackages;
     mapping(address => address) public upline; // Mapping to store upline for each user
     mapping(uint256 => mapping(address => address[])) public downlines;
-    mapping(uint256 => mapping(address => address[]))
-        public secondLayerDownlines;
+    mapping(uint256 => mapping(address => address[])) public secondLayerDownlines;
+
+    address public owner;
 
     // Declare payable addresses for upline
     address payable public upline1;
@@ -53,8 +44,9 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
     address payable public structureUpline1;
     address payable public structureUpline2;
 
+    IERC20 public usdtToken;
     address payable public RoyaltyContract;
-    address public usdtToken;
+    RegistrationInterface public registration;
 
     // Constants for distribution percentages
     uint256 private constant upline1_PERCENTAGE = 40;
@@ -79,44 +71,52 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
         address structureUpline2
     );
 
-    RegistrationInterface public registration;
+    constructor() {
+        owner = msg.sender;
 
-    function initialize(
-        address initialOwner,
-        address _usdtToken,
-        address _royalty
-    ) external initializer {
-        __Ownable_init(initialOwner);
-        usdtToken = _usdtToken;
-        RoyaltyContract = payable(_royalty);
+        packagePrices.push(0);
+        packagePrices.push(5 * 10**18);
+        packagePrices.push(8 * 10**18);
+        packagePrices.push(14 * 10**18);
+        packagePrices.push(26 * 10**18);
+        packagePrices.push(50 * 10**18);
+        packagePrices.push(98 * 10**18);
+        packagePrices.push(194 * 10**18);
+        packagePrices.push(386 * 10**18);
+        packagePrices.push(770 * 10**18);
+        packagePrices.push(1538 * 10**18);
+        packagePrices.push(3074 * 10**18);
+        packagePrices.push(6146 * 10**18);
 
-        packageInfo.push(Package(0, 0, 0));
-        packageInfo.push(Package(5 * 10**18, 4, 16));
-        packageInfo.push(Package(8 * 10**18, 4, 16));
-        packageInfo.push(Package(14 * 10**18, 4, 16));
-        packageInfo.push(Package(26 * 10**18, 4, 16));
-        packageInfo.push(Package(50 * 10**18, 4, 16));
-        packageInfo.push(Package(98 * 10**18, 4, 16));
-        packageInfo.push(Package(194 * 10**18, 4, 16));
-        packageInfo.push(Package(386 * 10**18, 4, 16));
-        packageInfo.push(Package(770 * 10**18, 4, 16));
-        packageInfo.push(Package(1538 * 10**18, 4, 16));
-        packageInfo.push(Package(3074 * 10**18, 4, 16));
-        packageInfo.push(Package(6146 * 10**18, 4, 16));
-
-        upline1 = payable(owner());
-        upline2 = payable(owner());
-        upline3 = payable(owner());
-        upline4 = payable(owner());
-        upline5 = payable(owner());
-        structureUpline1 = payable(owner());
-        structureUpline2 = payable(owner());
+        upline1 = payable(owner);
+        upline2 = payable(owner);
+        upline3 = payable(owner);
+        upline4 = payable(owner);
+        upline5 = payable(owner);
+        structureUpline1 = payable(owner);
+        structureUpline2 = payable(owner);
     }
 
     receive() external payable {}
 
+    modifier onlyOwner() {
+        require(
+            msg.sender == owner,
+            "Only the contract owner can call this function"
+        );
+        _;
+    }
+
     function setRegistration(address _registrationAddress) external onlyOwner {
         registration = RegistrationInterface(_registrationAddress);
+    }
+
+    function setRoyalty(address _royalty) external onlyOwner {
+        RoyaltyContract = payable(_royalty);
+    }
+
+    function setUSDT(address _usdtToken) external onlyOwner {
+        usdtToken = IERC20(_usdtToken);
     }
 
     // Function to fetch user information from Registration contract
@@ -181,29 +181,29 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
 
         // If upline1, upline2, upline3, upline4, or upline5 are not set, set them to the contract owner
         if (qualifiedUplinesFound < 1) {
-            upline1 = payable(owner());
+            upline1 = payable(owner);
         }
 
         if (qualifiedUplinesFound < 2) {
-            upline2 = payable(owner());
+            upline2 = payable(owner);
         }
 
         if (qualifiedUplinesFound < 3) {
-            upline3 = payable(owner());
+            upline3 = payable(owner);
         }
 
         if (qualifiedUplinesFound < 4) {
-            upline4 = payable(owner());
+            upline4 = payable(owner);
         }
 
         if (qualifiedUplinesFound < 5) {
-            upline5 = payable(owner());
+            upline5 = payable(owner);
         }
     }
 
     function purchasePackage(uint256 packageIndex) external {
         require(
-            packageIndex > 0 && packageIndex < packageInfo.length,
+            packageIndex > 0 && packageIndex < packagePrices.length,
             "Invalid package index"
         );
 
@@ -215,12 +215,12 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
             "Must purchase packages sequentially"
         );
 
-        uint256 packagePrice = packageInfo[packageIndex].price;
+        uint256 packagePrice = packagePrices[packageIndex];
 
-        IERC20(usdtToken).approve(address(this), packagePrice);
+        usdtToken.approve(address(this), packagePrice);
 
         // Transfer USDT from the user to the contract
-        IERC20(usdtToken).transferFrom(msg.sender, address(this), packagePrice);
+        usdtToken.transferFrom(msg.sender, address(this), packagePrice);
 
         // Check if the user is registered
         require(getUserInfo(msg.sender).isRegistered, "User is not registered");
@@ -239,16 +239,13 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
         uint256 remainingAmount = packagePrice - 2 * 10**18;
 
         // Check if the specified upline already has 4 downlines
-        if (
-            downlines[packageIndex][upline1].length <
-            packageInfo[packageIndex].maxDirectDownlines
-        ) {
+        if (downlines[packageIndex][upline1].length < 4) {
             downlines[packageIndex][upline1].push(msg.sender);
             upline[msg.sender] = upline1;
             structureUpline1 = upline1;
             structureUpline2 = payable(upline[structureUpline1]);
 
-            if (upline1 != owner()) {
+            if (upline1 != owner) {
                 secondLayerDownlines[packageIndex][structureUpline2].push(
                     msg.sender
                 );
@@ -260,16 +257,13 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
                 i++
             ) {
                 address downlineAddress = downlines[packageIndex][upline1][i];
-                if (
-                    downlines[packageIndex][downlineAddress].length <
-                    packageInfo[packageIndex].maxDirectDownlines
-                ) {
+                if (downlines[packageIndex][downlineAddress].length < 4) {
                     downlines[packageIndex][downlineAddress].push(msg.sender);
                     upline[msg.sender] = downlineAddress;
                     structureUpline1 = payable(downlineAddress);
                     structureUpline2 = payable(upline[downlineAddress]);
 
-                    if (downlineAddress != owner()) {
+                    if (downlineAddress != owner) {
                         secondLayerDownlines[packageIndex][structureUpline2]
                             .push(msg.sender);
                     }
@@ -277,24 +271,21 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
                 }
             }
         }
-        IERC20(usdtToken).transfer(structureUpline1, remainingAmount / 2);
+        usdtToken.transfer(structureUpline1, remainingAmount / 2);
         distributeUSDT(structureUpline2, remainingAmount / 2, packageIndex);
 
         // Check if the maximum secondary downlines limit is reached
-        if (
-            secondLayerDownlines[packageIndex][structureUpline2].length ==
-            packageInfo[packageIndex].maxSecondaryDownlines
-        ) {
+        if (secondLayerDownlines[packageIndex][structureUpline2].length == 16) {
             address UplineOfStructure2 = upline[structureUpline2];
             address uplineToUplineOfStructure2 = upline[
                 upline[structureUpline2]
             ];
 
-            if (structureUpline2 == owner()) {
-                downlines[packageIndex][owner()] = new address[](0);
-                secondLayerDownlines[packageIndex][owner()] = new address[](0);
+            if (structureUpline2 == owner) {
+                downlines[packageIndex][owner] = new address[](0);
+                secondLayerDownlines[packageIndex][owner] = new address[](0);
                 emit PackagePurchased(
-                    owner(),
+                    owner,
                     packageIndex,
                     packagePrice,
                     address(0),
@@ -312,23 +303,19 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
 
             if (
                 UplineOfStructure2 != address(0) &&
-                downlines[packageIndex][UplineOfStructure2].length <
-                packageInfo[packageIndex].maxDirectDownlines
+                downlines[packageIndex][UplineOfStructure2].length < 4
             ) {
                 // Add structureUpline2 to the direct downlines of uplineOfUpline2
                 downlines[packageIndex][UplineOfStructure2].push(
                     structureUpline2
                 );
-                if (UplineOfStructure2 != owner()) {
+                if (UplineOfStructure2 != owner) {
                     secondLayerDownlines[packageIndex][
                         uplineToUplineOfStructure2
                     ].push(structureUpline2);
                 }
-                IERC20(usdtToken).transfer(
-                    UplineOfStructure2,
-                    remainingAmount / 2
-                );
-                IERC20(usdtToken).transfer(
+                usdtToken.transfer(UplineOfStructure2, remainingAmount / 2);
+                usdtToken.transfer(
                     uplineToUplineOfStructure2,
                     remainingAmount / 2
                 );
@@ -387,25 +374,24 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
                     ][UplineOfStructure2][i];
                     if (
                         downlines[packageIndex][downlineOfUplineOfStructure2]
-                            .length <
-                        packageInfo[packageIndex].maxDirectDownlines
+                            .length < 4
                     ) {
                         // Add structureUpline2 to the direct downlines of downlineOfUplineOfStructure2
                         downlines[packageIndex][downlineOfUplineOfStructure2]
                             .push(structureUpline2);
                         upline[structureUpline2] = downlineOfUplineOfStructure2;
 
-                        if (downlineOfUplineOfStructure2 != owner()) {
+                        if (downlineOfUplineOfStructure2 != owner) {
                             secondLayerDownlines[packageIndex][
                                 UplineOfStructure2
                             ].push(structureUpline2);
                         }
                         // Distribute to upline3 and upline4 for 15
-                        IERC20(usdtToken).transfer(
+                        usdtToken.transfer(
                             downlineOfUplineOfStructure2,
                             remainingAmount / 2
                         );
-                        IERC20(usdtToken).transfer(
+                        usdtToken.transfer(
                             UplineOfStructure2,
                             remainingAmount / 2
                         );
@@ -463,23 +449,23 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
         uint256 usdtToDistribute = 2 * 10**18; // 2 USDT
 
         // Transfer USDT to levels
-        IERC20(usdtToken).transfer(
+        usdtToken.transfer(
             upline1,
             (usdtToDistribute * upline1_PERCENTAGE) / 100
         );
-        IERC20(usdtToken).transfer(
+        usdtToken.transfer(
             upline2,
             (usdtToDistribute * upline2_PERCENTAGE) / 100
         );
-        IERC20(usdtToken).transfer(
+        usdtToken.transfer(
             upline3,
             (usdtToDistribute * upline3_PERCENTAGE) / 100
         );
-        IERC20(usdtToken).transfer(
+        usdtToken.transfer(
             upline4,
             (usdtToDistribute * upline4_PERCENTAGE) / 100
         );
-        IERC20(usdtToken).transfer(
+        usdtToken.transfer(
             upline5,
             (usdtToDistribute * upline5_PERCENTAGE) / 100
         );
@@ -494,7 +480,7 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
             StructureUpline2
         ];
         uint256 i = secondLayer.length;
-        uint256 packagePrice = packageInfo[packageIndex].price;
+        uint256 packagePrice = packagePrices[packageIndex];
         // Distribute USDT according to the conditions
         if (secondLayer.length <= 15) {
             if (i == 0) {
@@ -515,7 +501,7 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
                 );
             } else if (i >= 1 && i <= 3) {
                 // Distribute to RoyaltyContract for the first 3 downlines
-                IERC20(usdtToken).transfer(RoyaltyContract, amountToDistribute);
+                usdtToken.transfer(RoyaltyContract, amountToDistribute);
                 emit PackagePurchased(
                     msg.sender,
                     packageIndex,
@@ -533,10 +519,7 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
                 );
             } else if (i >= 4 && i <= 14) {
                 // Distribute to upline2 for downlines 4 to 13
-                IERC20(usdtToken).transfer(
-                    structureUpline2,
-                    amountToDistribute
-                );
+                usdtToken.transfer(structureUpline2, amountToDistribute);
                 emit PackagePurchased(
                     msg.sender,
                     packageIndex,
@@ -555,8 +538,8 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
             } else if (i == 15) {
                 uint256 halfAmount = amountToDistribute / 2;
                 // Distribute to upline3 and upline4 for downlines 14
-                IERC20(usdtToken).transfer(address(this), halfAmount);
-                IERC20(usdtToken).transfer(address(this), halfAmount);
+                usdtToken.transfer(address(this), halfAmount);
+                usdtToken.transfer(address(this), halfAmount);
                 emit PackagePurchased(
                     msg.sender,
                     packageIndex,
@@ -586,13 +569,13 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
 
     function ownerBuysAllPackages() external onlyOwner {
         // Iterate through all packages and purchase them for the owner
-        for (uint256 i = 1; i < packageInfo.length; i++) {
+        for (uint256 i = 1; i < packagePrices.length; i++) {
             // Update user's package index
-            userPackages[owner()] = i;
-            uint256 packagePrice = packageInfo[i].price;
+            userPackages[owner] = i;
+            uint256 packagePrice = packagePrices[i];
 
             emit PackagePurchased(
-                owner(),
+                owner,
                 i,
                 packagePrice,
                 address(0),
@@ -614,7 +597,7 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
         onlyOwner
     {
         require(
-            packageIndex > 0 && packageIndex < packageInfo.length,
+            packageIndex > 0 && packageIndex < packagePrices.length,
             "Invalid package index"
         );
 
@@ -639,16 +622,13 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
         updateAndSetDistributionAddresses(referrerAddress, packageIndex);
 
         // Check if the specified upline already has 4 downlines
-        if (
-            downlines[packageIndex][upline1].length <
-            packageInfo[packageIndex].maxDirectDownlines
-        ) {
+        if (downlines[packageIndex][upline1].length < 4) {
             downlines[packageIndex][upline1].push(user);
             upline[user] = upline1;
             structureUpline1 = upline1;
             structureUpline2 = payable(upline[structureUpline1]);
 
-            if (upline1 != owner()) {
+            if (upline1 != owner) {
                 secondLayerDownlines[packageIndex][structureUpline2].push(user);
             }
         } else {
@@ -658,15 +638,12 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
                 i++
             ) {
                 address downlineAddress = downlines[packageIndex][upline1][i];
-                if (
-                    downlines[packageIndex][downlineAddress].length <
-                    packageInfo[packageIndex].maxDirectDownlines
-                ) {
+                if (downlines[packageIndex][downlineAddress].length < 4) {
                     downlines[packageIndex][downlineAddress].push(user);
                     upline[user] = downlineAddress;
                     structureUpline1 = payable(downlineAddress);
                     structureUpline2 = payable(upline[downlineAddress]);
-                    if (structureUpline1 != owner()) {
+                    if (structureUpline1 != owner) {
                         secondLayerDownlines[packageIndex][structureUpline2]
                             .push(user);
                     }
@@ -679,7 +656,7 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
             structureUpline2
         ];
         uint256 i = secondLayer.length;
-        uint256 packagePrice = packageInfo[packageIndex].price;
+        uint256 packagePrice = packagePrices[packageIndex];
 
         if (secondLayer.length <= 16) {
             if (i == 0) {
@@ -772,11 +749,11 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
                 upline[structureUpline2]
             ];
 
-            if (structureUpline2 == owner()) {
-                downlines[packageIndex][owner()] = new address[](0);
-                secondLayerDownlines[packageIndex][owner()] = new address[](0);
+            if (structureUpline2 == owner) {
+                downlines[packageIndex][owner] = new address[](0);
+                secondLayerDownlines[packageIndex][owner] = new address[](0);
                 emit PackagePurchased(
-                    owner(),
+                    owner,
                     packageIndex,
                     packagePrice,
                     address(0),
@@ -794,8 +771,7 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
 
             if (
                 UplineOfStructure2 != address(0) &&
-                downlines[packageIndex][UplineOfStructure2].length <
-                packageInfo[packageIndex].maxDirectDownlines
+                downlines[packageIndex][UplineOfStructure2].length < 4
             ) {
                 emit PackagePurchased(
                     structureUpline2,
@@ -816,7 +792,7 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
                 downlines[packageIndex][UplineOfStructure2].push(
                     structureUpline2
                 );
-                if (UplineOfStructure2 != owner()) {
+                if (UplineOfStructure2 != owner) {
                     secondLayerDownlines[packageIndex][
                         uplineToUplineOfStructure2
                     ].push(structureUpline2);
@@ -843,14 +819,13 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
                     ][UplineOfStructure2][i];
                     if (
                         downlines[packageIndex][downlineOfUplineOfStructure2]
-                            .length <
-                        packageInfo[packageIndex].maxDirectDownlines
+                            .length < 4
                     ) {
                         // Add user to the direct downlines of downlineOfUpline2
                         downlines[packageIndex][downlineOfUplineOfStructure2]
                             .push(structureUpline2);
                         upline[structureUpline2] = downlineOfUplineOfStructure2;
-                        if (downlineOfUplineOfStructure2 != owner()) {
+                        if (downlineOfUplineOfStructure2 != owner) {
                             secondLayerDownlines[packageIndex][
                                 UplineOfStructure2
                             ].push(structureUpline2);
@@ -896,7 +871,7 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
         uint256 startPackageIndex = userPackages[user] + 1;
         require(
             startPackageIndex > 0 &&
-                endPackageIndex < packageInfo.length &&
+                endPackageIndex < packagePrices.length &&
                 startPackageIndex <= endPackageIndex,
             "Invalid package indexes"
         );
@@ -955,6 +930,6 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
     }
 
     function withdrawUSDT(uint256 amount) public onlyOwner {
-        IERC20(usdtToken).transfer(owner(), amount);
+        usdtToken.transfer(owner, amount);
     }
 }
