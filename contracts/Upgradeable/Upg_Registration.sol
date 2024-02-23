@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract Registration{
-    address public owner;
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
+contract Registration is Initializable, OwnableUpgradeable {
     struct UserInfo {
         address referrer;
         address[] referrals;
@@ -21,13 +22,8 @@ contract Registration{
         string uniqueId
     );
 
-    constructor() {
-        owner = msg.sender;
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Only the owner can call this function");
-        _;
+    function initialize(address initialOwner) public initializer {
+        __Ownable_init(initialOwner);
     }
 
     function GetIdFromAddress(address user)
@@ -69,7 +65,7 @@ contract Registration{
         UserInfo storage referrerInfo = allUsers[referrer];
 
         require(
-            referrerInfo.isRegistered || referrer == owner,
+            referrerInfo.isRegistered || referrer == owner(),
             "Not registered"
         );
         require(!user.isRegistered, "Already registered");
@@ -86,18 +82,18 @@ contract Registration{
     }
 
     function registerByOwner() external onlyOwner {
-        UserInfo storage ownerInfo = allUsers[owner];
+        UserInfo storage ownerInfo = allUsers[owner()];
 
         require(!ownerInfo.isRegistered, "Already registered");
 
-        ownerInfo.userUniqueId = GetIdFromAddress(owner);
-        ownerInfo.referrer = owner;
+        ownerInfo.userUniqueId = GetIdFromAddress(owner());
+        ownerInfo.referrer = owner();
         ownerInfo.isRegistered = true;
-        ownerInfo.referrals.push(owner);
-        userAddressByUniqueId[ownerInfo.userUniqueId] = owner;
+        ownerInfo.referrals.push(owner());
+        userAddressByUniqueId[ownerInfo.userUniqueId] = owner();
         totalUsers++;
 
-        emit UserRegistered(owner, address(0), ownerInfo.userUniqueId);
+        emit UserRegistered(owner(), address(0), ownerInfo.userUniqueId);
     }
 
     function findReferrerByUniqueId(string memory referrerUniqueId)
