@@ -81,4 +81,8 @@ contract Royalty {
             usdtToken.transfer(recipients[i], amountPerRecipient);
         }
     }
+
+    function withdrawUSDT(uint256 amount) public onlyOwner {
+        usdtToken.transfer(owner, amount);
+    }
 }
