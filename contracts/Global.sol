@@ -19,7 +19,7 @@ contract MLMContract {
         return false;
     }
 
-    function isRoyalty(uint256 pos) internal pure returns (bool) {
+    function isRoyalty(uint256 pos) public pure returns (bool) {
         if (pos == 4 || pos == 5) {
             return true;
         }
@@ -29,7 +29,7 @@ contract MLMContract {
         return false;
     }
 
-    function findUpline(uint256 pos) internal pure returns (uint256) {
+    function findUpline(uint256 pos) public pure returns (uint256) {
         if (pos % 3 == 0) {
             return pos / 3 - 1;
         }
@@ -53,12 +53,23 @@ contract MLMContract {
             currentEmptyPos += 1;
             return;
         }
-        else if(currentEmptyPos == 4 || currentEmptyPos == 5|| currentEmptyPos == 6 || currentEmptyPos == 7 || currentEmptyPos == 8 || currentEmptyPos == 9 || currentEmptyPos == 10 || currentEmptyPos == 11 || currentEmptyPos == 12) {
+        else if(currentEmptyPos == 4 || currentEmptyPos == 5|| currentEmptyPos == 6) {
             upline1[user] = users[1];
             upline2[user] = users[0];
             currentEmptyPos += 1;
             return;
-        }else{
+        }else if(currentEmptyPos == 7 || currentEmptyPos == 8 || currentEmptyPos == 9) {
+            upline1[user] = users[2];
+            upline2[user] = users[0];
+            currentEmptyPos += 1;
+            return;
+        }else if(currentEmptyPos == 10 || currentEmptyPos == 11 || currentEmptyPos == 12) {
+            upline1[user] = users[3];
+            upline2[user] = users[0];
+            currentEmptyPos += 1;
+            return;
+        }
+        else{
         uint256 uplinePos = findUpline(currentEmptyPos);
         // transfer money to upline1
         upline1[user] = users[uplinePos];
