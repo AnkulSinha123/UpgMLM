@@ -48,7 +48,7 @@ contract MLMContract {
             return;
         }
 
-        if(currentEmptyPos == 1 || currentEmptyPos == 2 || currentEmptyPos == 3) {
+        else if(currentEmptyPos == 1 || currentEmptyPos == 2 || currentEmptyPos == 3) {
             upline1[user] = users[0];
             currentEmptyPos += 1;
             return;
