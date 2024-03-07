@@ -138,7 +138,7 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
 
             // Move up to the next referrer
             userUpline = uplineOne[userUpline];
-            
+
             while (
                 userUpline != address(0) &&
                 userPackages[userUpline] < packageIndex
@@ -234,27 +234,21 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
     }
 
     function globalPurchase(uint256 packageIndex) external {
-        require(
-            packageIndex > 0 && packageIndex < packagePrices.length,
-            "Invalid package index"
-        );
+        require(packageIndex > 0 && packageIndex < packagePrices.length, "Invalid package index");
         uint256 currentPackageIndex = userPackages[msg.sender];
-        require(
-            packageIndex == currentPackageIndex + 1,
-            "Purchase packages sequentially"
-        );
-
-        require(getUserInfo(msg.sender).isRegistered, "Not registered");
+        require(packageIndex == currentPackageIndex + 1, "Purchase packages sequentially");
+        address user = msg.sender;
+        require(getUserInfo(user).isRegistered, "Not registered");
         require(users[currentEmptyPos] == address(0), "Position is not empty");
-
+        
         uint256 packagePrice = packagePrices[packageIndex];
         uint256 remainingAmount = packagePrice - 2 * 10**18;
         uint256 amountToDistribute = remainingAmount / 2;
 
         usdtToken.approve(address(this), packagePrice);
-        usdtToken.transferFrom(msg.sender, address(this), packagePrice);
+        usdtToken.transferFrom(user, address(this), packagePrice);
 
-        address user = msg.sender;
+        
         users[currentEmptyPos] = user;
         if (currentEmptyPos == 0) {
             uplineOne[user] = address(0);
@@ -280,6 +274,7 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
             updateAndSetDistributionAddresses(users[1], packageIndex);
             distribute2USDT();
             usdtToken.transfer(uplineOne[user], amountToDistribute);
+            usdtToken.transfer(uplineTwo[user], amountToDistribute);
             currentEmptyPos += 1;
             return;
         } else if (
@@ -290,6 +285,7 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
             updateAndSetDistributionAddresses(users[2], packageIndex);
             distribute2USDT();
             usdtToken.transfer(uplineOne[user], amountToDistribute);
+            usdtToken.transfer(uplineTwo[user], amountToDistribute);
             currentEmptyPos += 1;
             return;
         } else if (currentEmptyPos == 10 || currentEmptyPos == 11) {
@@ -299,6 +295,7 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
             distribute2USDT();
 
             usdtToken.transfer(uplineOne[user], amountToDistribute);
+            usdtToken.transfer(uplineTwo[user], amountToDistribute);
             currentEmptyPos += 1;
             return;
         } else {
