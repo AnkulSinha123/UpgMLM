@@ -137,20 +137,18 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
             }
 
             // Move up to the next referrer
-            userUpline = uplineOne[userUpline];
-
+            address referrer = getUserInfo(userUpline).referrer;
             while (
-                userUpline != address(0) &&
-                userPackages[userUpline] < packageIndex
+                referrer != address(0) && userPackages[referrer] < packageIndex
             ) {
-                userUpline = uplineOne[userUpline];
+                referrer = getUserInfo(referrer).referrer;
             }
 
-            if (userUpline == address(0)) {
+            if (referrer == address(0)) {
                 break; // Break the loop if no referrer with a matching or higher package index is found
             }
 
-            userUpline = userUpline;
+            userUpline = referrer;
         }
 
         // If upline1, upline2, upline3, upline4, or upline5 are not set, set them to the contract owner()
@@ -174,6 +172,7 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
             upline5 = payable(owner());
         }
     }
+
 
     function distribute2USDT() internal {
         uint256 usdtToDistribute = 2 * 10**18; // 2 USDT
@@ -233,6 +232,20 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
         return pos / 3;
     }
 
+    function ownerBuysAllPackages() external onlyOwner {
+        require(currentEmptyPos == 0);
+        users[currentEmptyPos] = owner();
+        uplineOne[owner()] = address(0);
+        uplineTwo[owner()] = address(0);
+        currentEmptyPos += 1;
+
+        // Iterate through all packages and purchase them for the owner
+        for (uint256 i = 1; i < packagePrices.length; i++) {
+            // Update user's package index
+            userPackages[owner()] = i;
+        }
+    }
+
     function globalPurchase(uint256 packageIndex) external {
         require(packageIndex > 0 && packageIndex < packagePrices.length, "Invalid package index");
         uint256 currentPackageIndex = userPackages[msg.sender];
@@ -244,6 +257,7 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
         uint256 packagePrice = packagePrices[packageIndex];
         uint256 remainingAmount = packagePrice - 2 * 10**18;
         uint256 amountToDistribute = remainingAmount / 2;
+        userPackages[user] = packageIndex;
 
         usdtToken.approve(address(this), packagePrice);
         usdtToken.transferFrom(user, address(this), packagePrice);
