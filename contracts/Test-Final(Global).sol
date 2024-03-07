@@ -23,9 +23,6 @@ interface RegistrationInterface {
 contract Pro_Global is Initializable, OwnableUpgradeable {
     uint256[] public packagePrices;
     mapping(address => uint256) public userPackages;
-    // mapping(uint256 => address) public users;
-    // mapping(address => address) public uplineOne;
-    // mapping(address => address) public uplineTwo;
     mapping(uint256 => mapping(uint256 => address)) public users;
     mapping(uint256 => mapping(address => address)) public uplineOne;
     mapping(uint256 => mapping(address => address)) public uplineTwo;
@@ -267,6 +264,8 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
             "Position is not empty"
         );
 
+        address referrer = getUserInfo(user).referrer;
+
         uint256 packagePrice = packagePrices[packageIndex];
         uint256 remainingAmount = packagePrice - 2 * 10**18;
         uint256 amountToDistribute = remainingAmount / 2;
@@ -289,10 +288,7 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
             currentEmptyPos[packageIndex] == 3
         ) {
             uplineOne[packageIndex][user] = users[packageIndex][0];
-            updateAndSetDistributionAddresses(
-                users[packageIndex][0],
-                packageIndex
-            );
+            updateAndSetDistributionAddresses(referrer, packageIndex);
             distribute2USDT();
             usdtToken.transfer(
                 uplineOne[packageIndex][user],
@@ -307,10 +303,7 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
         ) {
             uplineOne[packageIndex][user] = users[packageIndex][1];
             uplineTwo[packageIndex][user] = users[packageIndex][0];
-            updateAndSetDistributionAddresses(
-                users[packageIndex][1],
-                packageIndex
-            );
+            updateAndSetDistributionAddresses(referrer, packageIndex);
             distribute2USDT();
             usdtToken.transfer(
                 uplineOne[packageIndex][user],
@@ -329,10 +322,7 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
         ) {
             uplineOne[packageIndex][user] = users[packageIndex][2];
             uplineTwo[packageIndex][user] = users[packageIndex][0];
-            updateAndSetDistributionAddresses(
-                users[packageIndex][2],
-                packageIndex
-            );
+            updateAndSetDistributionAddresses(referrer, packageIndex);
             distribute2USDT();
             usdtToken.transfer(
                 uplineOne[packageIndex][user],
@@ -350,10 +340,7 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
         ) {
             uplineOne[packageIndex][user] = users[packageIndex][3];
             uplineTwo[packageIndex][user] = users[packageIndex][0];
-            updateAndSetDistributionAddresses(
-                users[packageIndex][3],
-                packageIndex
-            );
+            updateAndSetDistributionAddresses(referrer, packageIndex);
             distribute2USDT();
 
             usdtToken.transfer(
@@ -370,10 +357,7 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
             uint256 uplinePos = findUpline(currentEmptyPos[packageIndex]);
             // transfer money to upline1
             uplineOne[packageIndex][user] = users[packageIndex][uplinePos];
-            updateAndSetDistributionAddresses(
-                uplineOne[packageIndex][user],
-                packageIndex
-            );
+            updateAndSetDistributionAddresses(referrer, packageIndex);
             distribute2USDT();
 
             usdtToken.transfer(
