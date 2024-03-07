@@ -20,13 +20,14 @@ interface RegistrationInterface {
         returns (UserInfo memory);
 }
 
-contract Pro_Global is Initializable, OwnableUpgradeable {
+contract Pro_Power_Global is Initializable, OwnableUpgradeable {
     uint256[] public packagePrices;
     mapping(address => uint256) public userPackages;
-    mapping(uint256 => address) public users;
-    mapping(address => address) public uplineOne;
-    mapping(address => address) public uplineTwo;
-    uint256 public currentEmptyPos = 0;
+    mapping(uint256 => mapping(uint256 => address)) public users;
+    mapping(uint256 => mapping(address => address)) public uplineOne;
+    mapping(uint256 => mapping(address => address)) public uplineTwo;
+    mapping(uint256 => uint256) public currentEmptyPos;
+    uint256 public emptyPos = 0;
 
     struct UserInfo {
         address referrer;
@@ -173,7 +174,6 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
         }
     }
 
-
     function distribute2USDT() internal {
         uint256 usdtToDistribute = 2 * 10**18; // 2 USDT
 
@@ -233,27 +233,39 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
     }
 
     function ownerBuysAllPackages() external onlyOwner {
-        require(currentEmptyPos == 0);
-        users[currentEmptyPos] = owner();
-        uplineOne[owner()] = address(0);
-        uplineTwo[owner()] = address(0);
-        currentEmptyPos += 1;
-
+        require(emptyPos == 0);
         // Iterate through all packages and purchase them for the owner
         for (uint256 i = 1; i < packagePrices.length; i++) {
+            currentEmptyPos[i] = emptyPos;
             // Update user's package index
             userPackages[owner()] = i;
+            users[i][currentEmptyPos[i]] = owner();
+            uplineOne[i][owner()] = address(0);
+            uplineTwo[i][owner()] = address(0);
+
+            currentEmptyPos[i] += 1;
         }
     }
 
     function globalPurchase(uint256 packageIndex) external {
-        require(packageIndex > 0 && packageIndex < packagePrices.length, "Invalid package index");
+        require(
+            packageIndex > 0 && packageIndex < packagePrices.length,
+            "Invalid package index"
+        );
         uint256 currentPackageIndex = userPackages[msg.sender];
-        require(packageIndex == currentPackageIndex + 1, "Purchase packages sequentially");
+        require(
+            packageIndex == currentPackageIndex + 1,
+            "Purchase packages sequentially"
+        );
         address user = msg.sender;
         require(getUserInfo(user).isRegistered, "Not registered");
-        require(users[currentEmptyPos] == address(0), "Position is not empty");
-        
+        require(
+            users[packageIndex][currentEmptyPos[packageIndex]] == address(0),
+            "Position is not empty"
+        );
+
+        address referrer = getUserInfo(user).referrer;
+
         uint256 packagePrice = packagePrices[packageIndex];
         uint256 remainingAmount = packagePrice - 2 * 10**18;
         uint256 amountToDistribute = remainingAmount / 2;
@@ -262,99 +274,146 @@ contract Pro_Global is Initializable, OwnableUpgradeable {
         usdtToken.approve(address(this), packagePrice);
         usdtToken.transferFrom(user, address(this), packagePrice);
 
-        
-        users[currentEmptyPos] = user;
-        if (currentEmptyPos == 0) {
-            uplineOne[user] = address(0);
-            uplineTwo[user] = address(0);
-            currentEmptyPos += 1;
+        users[packageIndex][currentEmptyPos[packageIndex]] = user;
+        if (currentEmptyPos[packageIndex] == 0) {
+            uplineOne[packageIndex][user] = address(0);
+            uplineTwo[packageIndex][user] = address(0);
+            currentEmptyPos[packageIndex] += 1;
             return;
         }
 
         if (
-            currentEmptyPos == 1 || currentEmptyPos == 2 || currentEmptyPos == 3
+            currentEmptyPos[packageIndex] == 1 ||
+            currentEmptyPos[packageIndex] == 2 ||
+            currentEmptyPos[packageIndex] == 3
         ) {
-            uplineOne[user] = users[0];
-            updateAndSetDistributionAddresses(users[0], packageIndex);
+            uplineOne[packageIndex][user] = users[packageIndex][0];
+            updateAndSetDistributionAddresses(referrer, packageIndex);
             distribute2USDT();
-            usdtToken.transfer(uplineOne[user], amountToDistribute);
-            currentEmptyPos += 1;
+            usdtToken.transfer(
+                uplineOne[packageIndex][user],
+                amountToDistribute
+            );
+            currentEmptyPos[packageIndex] += 1;
             return;
         } else if (
-            currentEmptyPos == 4 || currentEmptyPos == 5 || currentEmptyPos == 6
+            currentEmptyPos[packageIndex] == 4 ||
+            currentEmptyPos[packageIndex] == 5 ||
+            currentEmptyPos[packageIndex] == 6
         ) {
-            uplineOne[user] = users[1];
-            uplineTwo[user] = users[0];
-            updateAndSetDistributionAddresses(users[1], packageIndex);
+            uplineOne[packageIndex][user] = users[packageIndex][1];
+            uplineTwo[packageIndex][user] = users[packageIndex][0];
+            updateAndSetDistributionAddresses(referrer, packageIndex);
             distribute2USDT();
-            usdtToken.transfer(uplineOne[user], amountToDistribute);
-            usdtToken.transfer(uplineTwo[user], amountToDistribute);
-            currentEmptyPos += 1;
+            usdtToken.transfer(
+                uplineOne[packageIndex][user],
+                amountToDistribute
+            );
+            usdtToken.transfer(
+                uplineTwo[packageIndex][user],
+                amountToDistribute
+            );
+            currentEmptyPos[packageIndex] += 1;
             return;
         } else if (
-            currentEmptyPos == 7 || currentEmptyPos == 8 || currentEmptyPos == 9
+            currentEmptyPos[packageIndex] == 7 ||
+            currentEmptyPos[packageIndex] == 8 ||
+            currentEmptyPos[packageIndex] == 9
         ) {
-            uplineOne[user] = users[2];
-            uplineTwo[user] = users[0];
-            updateAndSetDistributionAddresses(users[2], packageIndex);
+            uplineOne[packageIndex][user] = users[packageIndex][2];
+            uplineTwo[packageIndex][user] = users[packageIndex][0];
+            updateAndSetDistributionAddresses(referrer, packageIndex);
             distribute2USDT();
-            usdtToken.transfer(uplineOne[user], amountToDistribute);
-            usdtToken.transfer(uplineTwo[user], amountToDistribute);
-            currentEmptyPos += 1;
+            usdtToken.transfer(
+                uplineOne[packageIndex][user],
+                amountToDistribute
+            );
+            usdtToken.transfer(
+                uplineTwo[packageIndex][user],
+                amountToDistribute
+            );
+            currentEmptyPos[packageIndex] += 1;
             return;
-        } else if (currentEmptyPos == 10 || currentEmptyPos == 11) {
-            uplineOne[user] = users[3];
-            uplineTwo[user] = users[0];
-            updateAndSetDistributionAddresses(users[3], packageIndex);
+        } else if (
+            currentEmptyPos[packageIndex] == 10 ||
+            currentEmptyPos[packageIndex] == 11
+        ) {
+            uplineOne[packageIndex][user] = users[packageIndex][3];
+            uplineTwo[packageIndex][user] = users[packageIndex][0];
+            updateAndSetDistributionAddresses(referrer, packageIndex);
             distribute2USDT();
 
-            usdtToken.transfer(uplineOne[user], amountToDistribute);
-            usdtToken.transfer(uplineTwo[user], amountToDistribute);
-            currentEmptyPos += 1;
+            usdtToken.transfer(
+                uplineOne[packageIndex][user],
+                amountToDistribute
+            );
+            usdtToken.transfer(
+                uplineTwo[packageIndex][user],
+                amountToDistribute
+            );
+            currentEmptyPos[packageIndex] += 1;
             return;
         } else {
-            uint256 uplinePos = findUpline(currentEmptyPos);
+            uint256 uplinePos = findUpline(currentEmptyPos[packageIndex]);
             // transfer money to upline1
-            uplineOne[user] = users[uplinePos];
-            updateAndSetDistributionAddresses(uplineOne[user], packageIndex);
+            uplineOne[packageIndex][user] = users[packageIndex][uplinePos];
+            updateAndSetDistributionAddresses(referrer, packageIndex);
             distribute2USDT();
 
-            usdtToken.transfer(uplineOne[user], amountToDistribute);
+            usdtToken.transfer(
+                uplineOne[packageIndex][user],
+                amountToDistribute
+            );
 
-            uint256 pos = currentEmptyPos;
+            uint256 pos = currentEmptyPos[packageIndex];
             if (isRecyclePos11(pos)) {
-                currentEmptyPos += 1;
-                uplineTwo[user] = uplineOne[users[uplinePos]];
+                currentEmptyPos[packageIndex] += 1;
+                uplineTwo[packageIndex][user] = uplineOne[packageIndex][
+                    users[packageIndex][uplinePos]
+                ];
 
                 usdtToken.transfer(address(this), amountToDistribute);
             } else if (isRecyclePos12(pos)) {
-                currentEmptyPos += 1;
-                uplineTwo[user] = uplineOne[users[uplinePos]];
-
-                currentEmptyPos += 1;
-                uint256 uplinePosRecycle = findUpline(currentEmptyPos);
-                address structureUpline2 = uplineTwo[user];
-                uplineOne[structureUpline2] = users[uplinePosRecycle];
-                uplineTwo[structureUpline2] = uplineOne[
-                    uplineOne[structureUpline2]
+                currentEmptyPos[packageIndex] += 1;
+                uplineTwo[packageIndex][user] = uplineOne[packageIndex][
+                    users[packageIndex][uplinePos]
                 ];
 
+                currentEmptyPos[packageIndex] += 1;
+                uint256 uplinePosRecycle = findUpline(
+                    currentEmptyPos[packageIndex]
+                );
+                address structureUpline2 = uplineTwo[packageIndex][user];
+                uplineOne[packageIndex][structureUpline2] = users[packageIndex][
+                    uplinePosRecycle
+                ];
+                uplineTwo[packageIndex][structureUpline2] = uplineOne[
+                    packageIndex
+                ][uplineOne[packageIndex][structureUpline2]];
+
                 usdtToken.transfer(
-                    uplineOne[structureUpline2],
+                    uplineOne[packageIndex][structureUpline2],
                     amountToDistribute
                 );
                 usdtToken.transfer(
-                    uplineTwo[structureUpline2],
+                    uplineTwo[packageIndex][structureUpline2],
                     amountToDistribute
                 );
             } else if (isRoyalty(pos)) {
-                currentEmptyPos += 1;
-                uplineTwo[user] = uplineOne[users[uplinePos]];
+                currentEmptyPos[packageIndex] += 1;
+                uplineTwo[packageIndex][user] = uplineOne[packageIndex][
+                    users[packageIndex][uplinePos]
+                ];
                 usdtToken.transfer(RoyaltyContract, amountToDistribute);
             } else {
-                currentEmptyPos += 1;
-                uplineTwo[user] = uplineOne[users[uplinePos]];
-                usdtToken.transfer(uplineTwo[user], amountToDistribute);
+                currentEmptyPos[packageIndex] += 1;
+                uplineTwo[packageIndex][user] = uplineOne[packageIndex][
+                    users[packageIndex][uplinePos]
+                ];
+                usdtToken.transfer(
+                    uplineTwo[packageIndex][user],
+                    amountToDistribute
+                );
             }
         }
     }
