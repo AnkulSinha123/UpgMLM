@@ -28,6 +28,7 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
     mapping(uint256 => mapping(address => address)) public uplineTwo;
     mapping(uint256 => uint256) public currentEmptyPos;
     uint256 public emptyPos = 0;
+    uint256 public packageInd;
 
     struct UserInfo {
         address referrer;
@@ -35,6 +36,22 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
         bool isRegistered;
         string userUniqueId;
     }
+
+    event PackagePurchased(
+        address indexed user,
+        uint256 packageIndex,
+        uint256 price,
+        address upline1,
+        address upline2,
+        address upline3,
+        address upline4,
+        address upline5,
+        bool royalty,
+        bool recycle11,
+        bool recycle12,
+        address uplineOne,
+        address uplineTwo
+    );
 
     // Declare payable addresses for upline
     address payable public upline1;
@@ -242,8 +259,25 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
             users[i][currentEmptyPos[i]] = owner();
             uplineOne[i][owner()] = address(0);
             uplineTwo[i][owner()] = address(0);
+            uint256 packagePrice = packagePrices[i];
 
             currentEmptyPos[i] += 1;
+
+            emit PackagePurchased(
+                owner(),
+                i,
+                packagePrice,
+                upline1,
+                upline2,
+                upline3,
+                upline4,
+                upline5,
+                false,
+                false,
+                false,
+                address(0),
+                address(0)
+            );
         }
     }
 
@@ -270,17 +304,12 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
         uint256 remainingAmount = packagePrice - 2 * 10**18;
         uint256 amountToDistribute = remainingAmount / 2;
         userPackages[user] = packageIndex;
+        packageInd = packageIndex;
 
         usdtToken.approve(address(this), packagePrice);
         usdtToken.transferFrom(user, address(this), packagePrice);
 
         users[packageIndex][currentEmptyPos[packageIndex]] = user;
-        if (currentEmptyPos[packageIndex] == 0) {
-            uplineOne[packageIndex][user] = address(0);
-            uplineTwo[packageIndex][user] = address(0);
-            currentEmptyPos[packageIndex] += 1;
-            return;
-        }
 
         if (
             currentEmptyPos[packageIndex] == 1 ||
@@ -295,12 +324,55 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
                 amountToDistribute
             );
             currentEmptyPos[packageIndex] += 1;
+
+            emit PackagePurchased(
+                user,
+                packageIndex,
+                packagePrice,
+                upline1,
+                upline2,
+                upline3,
+                upline4,
+                upline5,
+                false,
+                false,
+                false,
+                owner(),
+                address(0)
+            );
             return;
         } else if (
             currentEmptyPos[packageIndex] == 4 ||
-            currentEmptyPos[packageIndex] == 5 ||
-            currentEmptyPos[packageIndex] == 6
+            currentEmptyPos[packageIndex] == 5
         ) {
+            uplineOne[packageIndex][user] = users[packageIndex][1];
+            uplineTwo[packageIndex][user] = users[packageIndex][0];
+            updateAndSetDistributionAddresses(referrer, packageIndex);
+            distribute2USDT();
+            usdtToken.transfer(
+                uplineOne[packageIndex][user],
+                amountToDistribute
+            );
+            usdtToken.transfer(RoyaltyContract, amountToDistribute);
+            currentEmptyPos[packageIndex] += 1;
+
+            emit PackagePurchased(
+                user,
+                packageIndex,
+                packagePrice,
+                upline1,
+                upline2,
+                upline3,
+                upline4,
+                upline5,
+                true,
+                false,
+                false,
+                users[packageInd][1],
+                users[packageInd][0]
+            );
+            return;
+        } else if (currentEmptyPos[packageIndex] == 6) {
             uplineOne[packageIndex][user] = users[packageIndex][1];
             uplineTwo[packageIndex][user] = users[packageIndex][0];
             updateAndSetDistributionAddresses(referrer, packageIndex);
@@ -314,6 +386,22 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
                 amountToDistribute
             );
             currentEmptyPos[packageIndex] += 1;
+
+            emit PackagePurchased(
+                user,
+                packageIndex,
+                packagePrice,
+                upline1,
+                upline2,
+                upline3,
+                upline4,
+                upline5,
+                false,
+                false,
+                false,
+                users[packageInd][1],
+                users[packageInd][0]
+            );
             return;
         } else if (
             currentEmptyPos[packageIndex] == 7 ||
@@ -333,11 +421,25 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
                 amountToDistribute
             );
             currentEmptyPos[packageIndex] += 1;
+
+            emit PackagePurchased(
+                user,
+                packageIndex,
+                packagePrice,
+                upline1,
+                upline2,
+                upline3,
+                upline4,
+                upline5,
+                false,
+                false,
+                false,
+                users[packageInd][2],
+                users[packageInd][0]
+            );
+
             return;
-        } else if (
-            currentEmptyPos[packageIndex] == 10 ||
-            currentEmptyPos[packageIndex] == 11
-        ) {
+        } else if (currentEmptyPos[packageIndex] == 10) {
             uplineOne[packageIndex][user] = users[packageIndex][3];
             uplineTwo[packageIndex][user] = users[packageIndex][0];
             updateAndSetDistributionAddresses(referrer, packageIndex);
@@ -352,10 +454,55 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
                 amountToDistribute
             );
             currentEmptyPos[packageIndex] += 1;
+
+            emit PackagePurchased(
+                user,
+                packageIndex,
+                packagePrice,
+                upline1,
+                upline2,
+                upline3,
+                upline4,
+                upline5,
+                false,
+                false,
+                false,
+                users[packageInd][3],
+                users[packageInd][0]
+            );
+            return;
+        } else if (currentEmptyPos[packageIndex] == 11) {
+            uplineOne[packageIndex][user] = users[packageIndex][3];
+            uplineTwo[packageIndex][user] = users[packageIndex][0];
+            updateAndSetDistributionAddresses(referrer, packageIndex);
+            distribute2USDT();
+
+            usdtToken.transfer(
+                uplineOne[packageIndex][user],
+                amountToDistribute
+            );
+            usdtToken.transfer(address(this), amountToDistribute);
+            currentEmptyPos[packageIndex] += 1;
+
+            emit PackagePurchased(
+                user,
+                packageIndex,
+                packagePrice,
+                upline1,
+                upline2,
+                upline3,
+                upline4,
+                upline5,
+                false,
+                true,
+                false,
+                users[packageInd][3],
+                users[packageInd][0]
+            );
             return;
         } else {
             uint256 uplinePos = findUpline(currentEmptyPos[packageIndex]);
-            // transfer money to upline1
+
             uplineOne[packageIndex][user] = users[packageIndex][uplinePos];
             updateAndSetDistributionAddresses(referrer, packageIndex);
             distribute2USDT();
@@ -373,6 +520,22 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
                 ];
 
                 usdtToken.transfer(address(this), amountToDistribute);
+
+                emit PackagePurchased(
+                    user,
+                    packageIndex,
+                    packagePrice,
+                    upline1,
+                    upline2,
+                    upline3,
+                    upline4,
+                    upline5,
+                    false,
+                    true,
+                    false,
+                    uplineOne[packageInd][msg.sender],
+                    uplineTwo[packageInd][msg.sender]
+                );
             } else if (isRecyclePos12(pos)) {
                 currentEmptyPos[packageIndex] += 1;
                 uplineTwo[packageIndex][user] = uplineOne[packageIndex][
@@ -395,9 +558,38 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
                     uplineOne[packageIndex][structureUpline2],
                     amountToDistribute
                 );
-                usdtToken.transfer(
-                    uplineTwo[packageIndex][structureUpline2],
-                    amountToDistribute
+                usdtToken.transfer(RoyaltyContract, amountToDistribute);
+
+                emit PackagePurchased(
+                    user,
+                    packageIndex,
+                    packagePrice,
+                    upline1,
+                    upline2,
+                    upline3,
+                    upline4,
+                    upline5,
+                    false,
+                    false,
+                    true,
+                    uplineOne[packageInd][msg.sender],
+                    uplineTwo[packageInd][msg.sender]
+                );
+
+                emit PackagePurchased(
+                    structureUpline2,
+                    packageIndex,
+                    packagePrice,
+                    upline1,
+                    upline2,
+                    upline3,
+                    upline4,
+                    upline5,
+                    true,
+                    false,
+                    false,
+                    uplineOne[packageInd][structureUpline2],
+                    uplineTwo[packageInd][structureUpline2]
                 );
             } else if (isRoyalty(pos)) {
                 currentEmptyPos[packageIndex] += 1;
@@ -405,6 +597,22 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
                     users[packageIndex][uplinePos]
                 ];
                 usdtToken.transfer(RoyaltyContract, amountToDistribute);
+
+                emit PackagePurchased(
+                    user,
+                    packageIndex,
+                    packagePrice,
+                    upline1,
+                    upline2,
+                    upline3,
+                    upline4,
+                    upline5,
+                    true,
+                    false,
+                    false,
+                    uplineOne[packageInd][msg.sender],
+                    uplineTwo[packageInd][msg.sender]
+                );
             } else {
                 currentEmptyPos[packageIndex] += 1;
                 uplineTwo[packageIndex][user] = uplineOne[packageIndex][
@@ -413,6 +621,22 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
                 usdtToken.transfer(
                     uplineTwo[packageIndex][user],
                     amountToDistribute
+                );
+
+                emit PackagePurchased(
+                    user,
+                    packageIndex,
+                    packagePrice,
+                    upline1,
+                    upline2,
+                    upline3,
+                    upline4,
+                    upline5,
+                    false,
+                    false,
+                    false,
+                    uplineOne[packageInd][msg.sender],
+                    uplineTwo[packageInd][msg.sender]
                 );
             }
         }
