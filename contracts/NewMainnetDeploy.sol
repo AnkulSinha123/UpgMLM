@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -24,14 +23,10 @@ interface RegistrationInterface {
 
 contract Pro_Power_Matrix is
     Initializable,
-    ERC20Upgradeable,
-    ERC20PermitUpgradeable,
     OwnableUpgradeable,
     UUPSUpgradeable
 {
     function initialize(address initialOwner) public initializer {
-        __ERC20_init("MyToken", "MTK");
-        __ERC20Permit_init("MyToken");
         __Ownable_init(initialOwner);
         __UUPSUpgradeable_init();
 
@@ -1142,24 +1137,15 @@ contract Pro_Power_Matrix is
         }
     }
 
-    function setStructure1(
+    function setStructureUpline1(
         address user,
-        address _structure1,
+        address _structure1Upline,
         uint256 packageIndex
     ) external onlyOwner {
-        upline[packageIndex][user] = payable(_structure1);
-        structureUpline1 = payable(_structure1);
+        upline[packageIndex][user] = payable(_structure1Upline);
     }
 
-    function setStructure2(
-        address payable _structure1,
-        address payable _structure2,
-        uint256 packageIndex
-    ) external onlyOwner {
-        upline[packageIndex][_structure1] = _structure2;
-    }
-
-    function removeAddress(
+    function removeAddressFromSecLine(
         uint256 index,
         uint256 packageIndex,
         address user
@@ -1184,7 +1170,7 @@ contract Pro_Power_Matrix is
         secondLayerDownlines[packageIndex][user].pop();
     }
 
-    function addAddress(
+    function addAddressInSecLine(
         uint256 index,
         uint256 packageIndex,
         address user,
