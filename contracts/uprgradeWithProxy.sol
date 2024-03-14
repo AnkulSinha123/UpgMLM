@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -728,6 +728,17 @@ contract Pro_Power_Matrix is
                 }
                 usdtToken.transfer(UplineOfStructure2, remaining / 2);
 
+                clearDownlines(
+                    structureUpline2,
+                    UplineOfStructure2,
+                    packageIndex
+                );
+                clearSecondLayerDownlines(
+                    structureUpline2,
+                    uplineToUplineOfStructure2,
+                    packageIndex
+                );
+
                 uint256 secondaryLine = secondLayerDownlines[packageIndex][
                     uplineToUplineOfStructure2
                 ].length;
@@ -749,17 +760,6 @@ contract Pro_Power_Matrix is
                         uplineToUplineOfStructure2
                     );
                 }
-
-                clearDownlines(
-                    structureUpline2,
-                    UplineOfStructure2,
-                    packageIndex
-                );
-                clearSecondLayerDownlines(
-                    structureUpline2,
-                    uplineToUplineOfStructure2,
-                    packageIndex
-                );
 
                 if (secondaryLine >= 1 && secondaryLine <= 3) {
                     usdtToken.transfer(RoyaltyContract, remaining / 2);
@@ -800,6 +800,22 @@ contract Pro_Power_Matrix is
                         UplineOfStructure2,
                         uplineToUplineOfStructure2
                     );
+                } else if (secondaryLine == 15) {
+                    emit PackagePurchased(
+                        structureUpline2,
+                        packageIndex,
+                        packagePrice,
+                        address(0),
+                        address(0),
+                        address(0),
+                        address(0),
+                        address(0),
+                        false,
+                        true,
+                        false,
+                        UplineOfStructure2,
+                        uplineToUplineOfStructure2
+                    );
                 } else if (secondaryLine == 16) {
                     recycleProcess(
                         packageIndex,
@@ -808,7 +824,6 @@ contract Pro_Power_Matrix is
                     );
                 }
             } else {
-
                 for (
                     uint256 i = 0;
                     i < downlines[packageIndex][UplineOfStructure2].length;
@@ -817,7 +832,6 @@ contract Pro_Power_Matrix is
                     address downlineOfUplineOfStructure2 = downlines[
                         packageIndex
                     ][UplineOfStructure2][i];
-
                     if (downlineOfUplineOfStructure2 != address(0)) {
                         if (
                             downlines[packageIndex][
@@ -847,15 +861,15 @@ contract Pro_Power_Matrix is
                             );
 
                             clearDownlines(
-                    structureUpline2,
-                    UplineOfStructure2,
-                    packageIndex
-                );
-                clearSecondLayerDownlines(
-                    structureUpline2,
-                    uplineToUplineOfStructure2,
-                    packageIndex
-                );
+                                structureUpline2,
+                                UplineOfStructure2,
+                                packageIndex
+                            );
+                            clearSecondLayerDownlines(
+                                structureUpline2,
+                                uplineToUplineOfStructure2,
+                                packageIndex
+                            );
 
                             uint256 secondaryLine = secondLayerDownlines[
                                 packageIndex
@@ -909,6 +923,22 @@ contract Pro_Power_Matrix is
                                     address(0),
                                     false,
                                     false,
+                                    false,
+                                    downlineOfUplineOfStructure2,
+                                    uplineToUplineOFStructureUpline2
+                                );
+                            } else if (secondaryLine == 15) {
+                                emit PackagePurchased(
+                                    structureUpline2,
+                                    packageIndex,
+                                    packagePrice,
+                                    address(0),
+                                    address(0),
+                                    address(0),
+                                    address(0),
+                                    address(0),
+                                    false,
+                                    true,
                                     false,
                                     downlineOfUplineOfStructure2,
                                     uplineToUplineOFStructureUpline2
@@ -980,7 +1010,6 @@ contract Pro_Power_Matrix is
                     UplineOfStructure2,
                     packageIndex
                 );
-
                 clearSecondLayerDownlines(
                     structureUpline2,
                     uplineToUplineOfStructure2,
@@ -1041,6 +1070,22 @@ contract Pro_Power_Matrix is
                         UplineOfStructure2,
                         uplineToUplineOfStructure2
                     );
+                } else if (secondaryLine == 15) {
+                    emit PackagePurchased(
+                        structureUpline2,
+                        packageIndex,
+                        packagePrice,
+                        address(0),
+                        address(0),
+                        address(0),
+                        address(0),
+                        address(0),
+                        false,
+                        true,
+                        false,
+                        UplineOfStructure2,
+                        uplineToUplineOfStructure2
+                    );
                 } else if (secondaryLine == 16) {
                     recycleProvidePackage(
                         packageIndex,
@@ -1048,17 +1093,6 @@ contract Pro_Power_Matrix is
                     );
                 }
             } else {
-                clearDownlines(
-                    structureUpline2,
-                    UplineOfStructure2,
-                    packageIndex
-                );
-                clearSecondLayerDownlines(
-                    structureUpline2,
-                    uplineToUplineOfStructure2,
-                    packageIndex
-                );
-
                 for (
                     uint256 i = 0;
                     i < downlines[packageIndex][UplineOfStructure2].length;
@@ -1090,6 +1124,17 @@ contract Pro_Power_Matrix is
                                     UplineOfStructure2
                                 ].push(structureUpline2);
                             }
+
+                            clearDownlines(
+                                structureUpline2,
+                                UplineOfStructure2,
+                                packageIndex
+                            );
+                            clearSecondLayerDownlines(
+                                structureUpline2,
+                                uplineToUplineOfStructure2,
+                                packageIndex
+                            );
 
                             uint256 secondaryLine = secondLayerDownlines[
                                 packageIndex
@@ -1143,6 +1188,22 @@ contract Pro_Power_Matrix is
                                     address(0),
                                     false,
                                     false,
+                                    false,
+                                    downlineOfUplineOfStructure2,
+                                    uplineToUplineOFStructureUpline2
+                                );
+                            } else if (secondaryLine == 15) {
+                                emit PackagePurchased(
+                                    structureUpline2,
+                                    packageIndex,
+                                    packagePrice,
+                                    address(0),
+                                    address(0),
+                                    address(0),
+                                    address(0),
+                                    address(0),
+                                    false,
+                                    true,
                                     false,
                                     downlineOfUplineOfStructure2,
                                     uplineToUplineOFStructureUpline2
