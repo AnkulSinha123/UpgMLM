@@ -351,7 +351,7 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             );
         }
         if (secondLayerDownlines[packageIndex][structureUpline2].length == 16) {
-            recycleProvidePackage(
+            recycleProcess(
                 packageIndex,
                 remainingAmount,
                 structureUpline2
@@ -362,7 +362,7 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         userPackages[msg.sender] = packageIndex;
     }
 
-    function recycleProvidePackage(
+    function recycleProcess(
         uint256 packageIndex,
         uint256 remaining,
         address structureUpline2
@@ -501,7 +501,7 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                         uplineToUplineOfStructure2
                     );
                 } else if (secondaryLine == 16) {
-                    recycleProvidePackage(
+                    recycleProcess(
                         packageIndex,
                         remaining,
                         uplineToUplineOfStructure2
@@ -544,10 +544,6 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                                 remaining / 2
                             );
 
-                            uint256 secondaryLine = secondLayerDownlines[
-                                packageIndex
-                            ][UplineOfStructure2].length;
-
                             clearDownlines(
                                 structureUpline2,
                                 UplineOfStructure2,
@@ -558,6 +554,10 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                                 uplineToUplineOfStructure2,
                                 packageIndex
                             );
+
+                            uint256 secondaryLine = secondLayerDownlines[
+                                packageIndex
+                            ][UplineOfStructure2].length;
 
                             if (secondaryLine == 16) {
                                 emit PackagePurchased(
@@ -628,7 +628,7 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                                     uplineToUplineOFStructureUpline2
                                 );
                             } else if (secondaryLine == 16) {
-                                recycleProvidePackage(
+                                recycleProcess(
                                     packageIndex,
                                     remaining,
                                     uplineToUplineOFStructureUpline2
@@ -1147,10 +1147,6 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                                 ].push(structureUpline2);
                             }
 
-                            uint256 secondaryLine = secondLayerDownlines[
-                                packageIndex
-                            ][UplineOfStructure2].length;
-
                             clearDownlines(
                                 structureUpline2,
                                 UplineOfStructure2,
@@ -1161,6 +1157,11 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                                 uplineToUplineOfStructure2,
                                 packageIndex
                             );
+
+
+                            uint256 secondaryLine = secondLayerDownlines[
+                                packageIndex
+                            ][UplineOfStructure2].length;
 
                             if (secondaryLine == 16) {
                                 emit PackagePurchased(
