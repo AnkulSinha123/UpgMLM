@@ -412,6 +412,10 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                 }
                 usdtToken.transfer(UplineOfStructure2, remaining / 2);
 
+                uint256 secondaryLine = secondLayerDownlines[packageIndex][
+                    uplineToUplineOfStructure2
+                ].length;
+
                 clearDownlines(
                     structureUpline2,
                     UplineOfStructure2,
@@ -423,9 +427,7 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                     packageIndex
                 );
 
-                uint256 secondaryLine = secondLayerDownlines[packageIndex][
-                    uplineToUplineOfStructure2
-                ].length;
+                
 
                 if (secondaryLine == 16) {
                     emit PackagePurchased(
@@ -544,6 +546,10 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                                 remaining / 2
                             );
 
+                            uint256 secondaryLine = secondLayerDownlines[
+                                packageIndex
+                            ][UplineOfStructure2].length;
+
                             clearDownlines(
                                 structureUpline2,
                                 UplineOfStructure2,
@@ -554,10 +560,6 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                                 uplineToUplineOfStructure2,
                                 packageIndex
                             );
-
-                            uint256 secondaryLine = secondLayerDownlines[
-                                packageIndex
-                            ][UplineOfStructure2].length;
 
                             if (secondaryLine == 16) {
                                 emit PackagePurchased(
