@@ -673,13 +673,11 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         uint256 amountToDistribute,
         uint256 packageIndex
     ) internal {
-        address[] storage secondLayer = secondLayerDownlines[packageIndex][
-            StructureUpline2
-        ];
-        uint256 i = secondLayer.length;
+        uint256 i = secondLayerDownlines[packageIndex][
+            StructureUpline2].length;
+  
         uint256 packagePrice = packagePrices[packageIndex];
         // Distribute USDT according to the conditions
-        if (secondLayer.length <= 15) {
             if (i == 0) {
                 emit PackagePurchased(
                     msg.sender,
@@ -752,7 +750,7 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                     structureUpline2
                 );
             }
-        }
+        
     }
 
     function clearDownlines(
@@ -962,7 +960,7 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         userPackages[user] = packageIndex;
     }
 
-    function recycleProvidePackagesBulk(
+    function ProvidePackagesBulk(
         uint256 endPackageIndex,
         address[] calldata users
     ) external onlyOwner {
