@@ -101,26 +101,14 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         Pro = Pro_Power_Matrix(_pro);
     }
 
-    function getUserPackage(address user) public view returns (uint256) {
-        return Pro.userPackages(user);
-    }
-
     function setPackage(address[] calldata users) external onlyOwner {
         for (uint256 i = 0; i < users.length; i++) {
             address user = users[i];
-            uint256 packageUser = getUserPackage(user);
+            uint256 packageUser = Pro.userPackages(user);
             if (packageUser != 0) {
                 userPackages[user] = packageUser;
             }
         }
-    }
-
-    function getUplineFromOldCode(uint256 _packageIndex, address user)
-        internal
-        view
-        returns (address)
-    {
-        return Pro.upline(_packageIndex, user);
     }
 
     function getAllDownlines(uint256 packageIndex, address user)
@@ -178,11 +166,13 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     {
         for (uint256 i = 0; i < users.length; i++) {
             address user = users[i];
-            address _structure1Upline = getUplineFromOldCode(
-                packageIndex,
-                user
-            );
-            upline[packageIndex][user] = _structure1Upline;
+
+            uint256 pack = userPackages[user];
+
+            for (uint256 pack = 1; i <= pack; i++) {
+                address _structure1Upline = Pro.upline(packageIndex, user);
+                upline[packageIndex][user] = _structure1Upline;
+            }
         }
     }
 
@@ -560,6 +550,10 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                                 remaining / 2
                             );
 
+                            uint256 secondaryLine = secondLayerDownlines[
+                                packageIndex
+                            ][UplineOfStructure2].length;
+
                             clearDownlines(
                                 structureUpline2,
                                 UplineOfStructure2,
@@ -570,10 +564,6 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                                 uplineToUplineOfStructure2,
                                 packageIndex
                             );
-
-                            uint256 secondaryLine = secondLayerDownlines[
-                                packageIndex
-                            ][UplineOfStructure2].length;
 
                             if (secondaryLine == 16) {
                                 emit PackagePurchased(
