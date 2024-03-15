@@ -160,39 +160,33 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         return newArray;
     }
 
-    function setUserUpline(address[] calldata users, uint256 packageIndex)
-        external
-        onlyOwner
-    {
+    function setUserUpline(address[] calldata users) external onlyOwner {
         for (uint256 i = 0; i < users.length; i++) {
             address user = users[i];
 
-            uint256 pack = userPackages[user];
+            uint256 package = userPackages[user];
 
-            for (uint256 pack = 1; i <= pack; i++) {
-                address _structure1Upline = Pro.upline(packageIndex, user);
-                upline[packageIndex][user] = _structure1Upline;
+            for (uint256 j = 1; i <= package; i++) {
+                address _structure1Upline = Pro.upline(j, user);
+                upline[j][user] = _structure1Upline;
             }
         }
     }
 
-    function setDownlinesForUsers(
-        address[] calldata users,
-        uint256 packageIndex
-    ) external onlyOwner {
+    function setDownlinesForUsers(address[] calldata users) external onlyOwner {
         for (uint256 i = 0; i < users.length; i++) {
             address user = users[i];
             uint256 pack = userPackages[users[i]];
 
-            for (uint256 i = 1; i <= pack; i++) {
-                address[] memory downline = getAllDownlines(packageIndex, user);
-                downlines[packageIndex][user] = downline;
+            for (uint256 j = 1; i <= pack; i++) {
+                address[] memory downline = getAllDownlines(j, user);
+                downlines[j][user] = downline;
                 if (downline.length != 0) {
                     address[] memory secdownline = getAllSecondaryDownlines(
-                        packageIndex,
+                        j,
                         user
                     );
-                    downlines[packageIndex][user] = secdownline;
+                    downlines[j][user] = secdownline;
                 }
             }
         }
