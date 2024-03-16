@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "./Registration.sol";
+
 
 interface RegistrationInterface {
     struct UserInfo {
@@ -20,9 +22,14 @@ interface RegistrationInterface {
         returns (UserInfo memory);
 }
 
-contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
+contract Pro_Power_Matrix is
+    Initializable,
+    OwnableUpgradeable,
+    UUPSUpgradeable
+{
     function initialize(address initialOwner) public initializer {
         __Ownable_init(initialOwner);
+        __UUPSUpgradeable_init();
 
         packagePrices.push(0);
         packagePrices.push(5 * 10**18);
@@ -47,6 +54,12 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
         structureUpline2 = payable(owner());
     }
 
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
+    {}
+
     struct UserInfo {
         address referrer;
         address[] referrals;
@@ -57,10 +70,10 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
     uint256[] public packagePrices;
 
     mapping(address => uint256) public userPackages;
-    mapping(address => address) public upline; // Mapping to store upline for each user
     mapping(uint256 => mapping(address => address[])) public downlines;
     mapping(uint256 => mapping(address => address[]))
         public secondLayerDownlines;
+    mapping(uint256 => mapping(address => address)) public upline;
 
     // Declare payable addresses for upline
     address payable public upline1;
@@ -220,7 +233,7 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
         require(getUserInfo(msg.sender).isRegistered, "Not registered");
 
         address referrerAddress = getUserInfo(msg.sender).referrer;
-        upline[msg.sender] = referrerAddress;
+        upline[packageIndex][msg.sender] = referrerAddress;
 
         // Check if the referrer address is valid
         require(referrerAddress != address(0), "Referrer not found");
@@ -235,9 +248,9 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
         // Check if the specified upline already has 4 downlines
         if (downlines[packageIndex][upline1].length < 4) {
             downlines[packageIndex][upline1].push(msg.sender);
-            upline[msg.sender] = upline1;
+            upline[packageIndex][msg.sender] = upline1;
             structureUpline1 = upline1;
-            structureUpline2 = payable(upline[structureUpline1]);
+            structureUpline2 = payable(upline[packageIndex][structureUpline1]);
 
             if (upline1 != owner()) {
                 secondLayerDownlines[packageIndex][structureUpline2].push(
@@ -253,9 +266,11 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
                 address downlineAddress = downlines[packageIndex][upline1][i];
                 if (downlines[packageIndex][downlineAddress].length < 4) {
                     downlines[packageIndex][downlineAddress].push(msg.sender);
-                    upline[msg.sender] = downlineAddress;
+                    upline[packageIndex][msg.sender] = downlineAddress;
                     structureUpline1 = payable(downlineAddress);
-                    structureUpline2 = payable(upline[downlineAddress]);
+                    structureUpline2 = payable(
+                        upline[packageIndex][downlineAddress]
+                    );
 
                     if (downlineAddress != owner()) {
                         secondLayerDownlines[packageIndex][structureUpline2]
@@ -405,14 +420,6 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
         }
     }
 
-    // Function to clear secondLayerDownlines for the specified upline and package
-    function clearSecondLayerDownlines(
-        address userAddress,
-        uint256 packageIndex
-    ) internal {
-        secondLayerDownlines[packageIndex][userAddress] = new address[](0);
-    }
-
     function ownerBuysAllPackages() external onlyOwner {
         // Iterate through all packages and purchase them for the owner
         for (uint256 i = 1; i < packagePrices.length; i++) {
@@ -463,16 +470,16 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
         // Check if the referrer address is valid
         require(referrerAddress != address(0), "Referrer not found");
 
-        upline[user] = referrerAddress;
+        upline[packageIndex][user] = referrerAddress;
 
         updateAndSetDistributionAddresses(referrerAddress, packageIndex);
 
         // Check if the specified upline already has 4 downlines
         if (downlines[packageIndex][upline1].length < 4) {
             downlines[packageIndex][upline1].push(user);
-            upline[user] = upline1;
+            upline[packageIndex][user] = upline1;
             structureUpline1 = upline1;
-            structureUpline2 = payable(upline[structureUpline1]);
+            structureUpline2 = payable(upline[packageIndex][structureUpline1]);
 
             if (upline1 != owner()) {
                 secondLayerDownlines[packageIndex][structureUpline2].push(user);
@@ -486,9 +493,11 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
                 address downlineAddress = downlines[packageIndex][upline1][i];
                 if (downlines[packageIndex][downlineAddress].length < 4) {
                     downlines[packageIndex][downlineAddress].push(user);
-                    upline[user] = downlineAddress;
+                    upline[packageIndex][user] = downlineAddress;
                     structureUpline1 = payable(downlineAddress);
-                    structureUpline2 = payable(upline[downlineAddress]);
+                    structureUpline2 = payable(
+                        upline[packageIndex][downlineAddress]
+                    );
                     if (structureUpline1 != owner()) {
                         secondLayerDownlines[packageIndex][structureUpline2]
                             .push(user);
@@ -587,26 +596,29 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
                 );
             }
         }
-
-        recycleProvidePackage(packageIndex, structureUpline2);
-
+        if (secondLayer.length == 16) {
+            recycleProvidePackage(packageIndex, structureUpline2);
+        }
         userPackages[user] = packageIndex;
     }
 
-    function providePackagesBulk(uint256 endPackageIndex, address user)
-        external
-        onlyOwner
-    {
-        uint256 startPackageIndex = userPackages[user] + 1;
-        require(
-            startPackageIndex > 0 &&
-                endPackageIndex < packagePrices.length &&
-                startPackageIndex <= endPackageIndex,
-            "Invalid package indexes"
-        );
+    function providePackagesBulk(
+        uint256 endPackageIndex,
+        address[] calldata users
+    ) external onlyOwner {
+        uint256 startPackageIndex;
+        for (uint256 j = 0; j < users.length; j++) {
+            startPackageIndex = userPackages[users[j]] + 1;
+            require(
+                startPackageIndex > 0 &&
+                    endPackageIndex < packagePrices.length &&
+                    startPackageIndex <= endPackageIndex,
+                "Invalid package indexes"
+            );
 
-        for (uint256 i = startPackageIndex; i <= endPackageIndex; i++) {
-            providePackage(i, user);
+            for (uint256 i = startPackageIndex; i <= endPackageIndex; i++) {
+                providePackage(i, users[j]);
+            }
         }
     }
 
@@ -667,8 +679,10 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
         uint256 remaining,
         address structureUpline2
     ) internal {
-        address UplineOfStructure2 = upline[structureUpline2];
-        address uplineToUplineOfStructure2 = upline[upline[structureUpline2]];
+        address UplineOfStructure2 = upline[packageIndex][structureUpline2];
+        address uplineToUplineOfStructure2 = upline[packageIndex][
+            upline[packageIndex][structureUpline2]
+        ];
         uint256 packagePrice = packagePrices[packageIndex];
 
         if (
@@ -803,9 +817,11 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
                     ) {
                         downlines[packageIndex][downlineOfUplineOfStructure2]
                             .push(structureUpline2);
-                        upline[structureUpline2] = downlineOfUplineOfStructure2;
+                        upline[packageIndex][
+                            structureUpline2
+                        ] = downlineOfUplineOfStructure2;
                         uplineToUplineOFStructureUpline2 = payable(
-                            upline[downlineOfUplineOfStructure2]
+                            upline[packageIndex][downlineOfUplineOfStructure2]
                         );
 
                         if (downlineOfUplineOfStructure2 != owner()) {
@@ -901,8 +917,10 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
         uint256 packageIndex,
         address structureUpline2
     ) internal {
-        address UplineOfStructure2 = upline[structureUpline2];
-        address uplineToUplineOfStructure2 = upline[upline[structureUpline2]];
+        address UplineOfStructure2 = upline[packageIndex][structureUpline2];
+        address uplineToUplineOfStructure2 = upline[packageIndex][
+            upline[packageIndex][structureUpline2]
+        ];
         uint256 packagePrice = packagePrices[packageIndex];
 
         if (
@@ -1028,9 +1046,11 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
                     ) {
                         downlines[packageIndex][downlineOfUplineOfStructure2]
                             .push(structureUpline2);
-                        upline[structureUpline2] = downlineOfUplineOfStructure2;
+                        upline[packageIndex][
+                            structureUpline2
+                        ] = downlineOfUplineOfStructure2;
                         uplineToUplineOFStructureUpline2 = payable(
-                            upline[downlineOfUplineOfStructure2]
+                            upline[packageIndex][downlineOfUplineOfStructure2]
                         );
 
                         if (downlineOfUplineOfStructure2 != owner()) {
@@ -1116,5 +1136,86 @@ contract Pro_Power_Matrix is Initializable, OwnableUpgradeable {
                 }
             }
         }
+    }
+
+    function setStructureUpline1(
+        address user,
+        address _structure1Upline,
+        uint256 packageIndex
+    ) external onlyOwner {
+        upline[packageIndex][user] = payable(_structure1Upline);
+    }
+
+    function removeAddressFromSecLine(
+        uint256 index,
+        uint256 packageIndex,
+        address user
+    ) external onlyOwner {
+        require(
+            index < secondLayerDownlines[packageIndex][user].length,
+            "Index out of bounds"
+        );
+
+        // Shift addresses back to fill the gap
+        for (
+            uint256 i = index;
+            i < secondLayerDownlines[packageIndex][user].length - 1;
+            i++
+        ) {
+            secondLayerDownlines[packageIndex][user][i] = secondLayerDownlines[
+                packageIndex
+            ][user][i + 1];
+        }
+
+        // Remove the last address
+        secondLayerDownlines[packageIndex][user].pop();
+    }
+
+    function addAddressInSecLine(
+        uint256 index,
+        uint256 packageIndex,
+        address user,
+        address newAddress
+    ) external onlyOwner {
+        require(
+            index <= secondLayerDownlines[packageIndex][user].length,
+            "Index out of bounds"
+        );
+
+        // Shift addresses forward to make space for the new address
+        secondLayerDownlines[packageIndex][user].push(); // Add a new element at the end
+        for (
+            uint256 i = secondLayerDownlines[packageIndex][user].length - 1;
+            i > index;
+            i--
+        ) {
+            secondLayerDownlines[packageIndex][user][i] = secondLayerDownlines[
+                packageIndex
+            ][user][i - 1];
+        }
+
+        // Add the new address at the specified index
+        secondLayerDownlines[packageIndex][user][index] = newAddress;
+    }
+
+    function clearDownlinesByOwner(address user, uint256 packageIndex)
+        public
+        onlyOwner
+    {
+        downlines[packageIndex][user] = new address[](0);
+    }
+
+    function clearSecondaryDownlinesByOwner(address user, uint256 packageIndex)
+        public
+        onlyOwner
+    {
+        secondLayerDownlines[packageIndex][user] = new address[](0);
+    }
+
+    function setPackage(address payable user, uint256 _setPackage)
+        external
+        onlyOwner
+    {
+        userPackages[user] = _setPackage;
     }
 }
