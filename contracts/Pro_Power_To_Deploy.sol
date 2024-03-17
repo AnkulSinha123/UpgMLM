@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "./Registration.sol";
-
 
 interface RegistrationInterface {
     struct UserInfo {
@@ -1220,7 +1219,6 @@ contract Pro_Power_Matrix is
     }
 }
 
-
 contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     IERC20 public usdtToken;
     address payable public RoyaltyContract;
@@ -1375,9 +1373,9 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
             uint256 package = userPackages[user];
 
-            for (uint8 j = 1; i <= package; i++) {
-                address _structure1Upline = Pro.upline(j, user);
-                upline[j][user] = _structure1Upline;
+            for (uint8 i = 1; i <= package; i++) {
+                address _structure1Upline = Pro.upline(i, user);
+                upline[i][user] = _structure1Upline;
             }
         }
     }
@@ -2410,11 +2408,14 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
     function withdrawUSDT(uint256 amount) external onlyOwner {
         require(amount > 0, "0");
-        require(usdtToken.balanceOf(address(this)) >= amount, "Insufficient USDT balance in contract");
+        require(
+            usdtToken.balanceOf(address(this)) >= amount,
+            "Insufficient USDT balance in contract"
+        );
         usdtToken.transfer(owner(), amount);
     }
 
-    function getUSDTBalance() external view returns (uint256) {
+    function getUSDTBalance() external view onlyOwner returns (uint256) {
         return usdtToken.balanceOf(address(this));
     }
 }
