@@ -1,34 +1,35 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+// import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+// import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+// import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+// import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "./Registration.sol";
+import "./Pro_Matrix.sol";
 
-interface RegistrationInterface {
-    struct UserInfo {
-        address referrer;
-        address[] referrals;
-        bool isRegistered;
-        string userUniqueId;
-    }
-
-    function getUserInfo(address _address)
-        external
-        view
-        returns (UserInfo memory);
-}
-
-contract Pro_Power_Global is Initializable, OwnableUpgradeable {
-    uint256[] public packagePrices;
-    mapping(address => uint256) public userPackages;
+contract Pro_Power_Global is
+    Initializable,
+    OwnableUpgradeable,
+    UUPSUpgradeable
+{
+    mapping(address => uint256) public globalUserPackages;
     mapping(uint256 => mapping(uint256 => address)) public users;
     mapping(uint256 => mapping(address => address)) public uplineOne;
     mapping(uint256 => mapping(address => address)) public uplineTwo;
     mapping(uint256 => uint256) public currentEmptyPos;
     uint256 public emptyPos = 0;
     uint256 public packageInd;
+    address public User;
+
+    struct PackageInfo {
+        uint256 packagePrice;
+        uint256 levelIncome;
+    }
+
+    PackageInfo[] public packageInfos;
+
+    Power_Matrix public power_matrix;
 
     struct UserInfo {
         address referrer;
@@ -75,20 +76,21 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
 
     function initialize(address initialOwner) public initializer {
         __Ownable_init(initialOwner);
+        __UUPSUpgradeable_init();
 
-        packagePrices.push(0);
-        packagePrices.push(5 * 10**18);
-        packagePrices.push(8 * 10**18);
-        packagePrices.push(14 * 10**18);
-        packagePrices.push(26 * 10**18);
-        packagePrices.push(50 * 10**18);
-        packagePrices.push(98 * 10**18);
-        packagePrices.push(194 * 10**18);
-        packagePrices.push(386 * 10**18);
-        packagePrices.push(770 * 10**18);
-        packagePrices.push(1538 * 10**18);
-        packagePrices.push(3074 * 10**18);
-        packagePrices.push(6146 * 10**18);
+        packageInfos.push(PackageInfo(0, 0));
+        packageInfos.push(PackageInfo(3 * 10**18, 2 * 10**18));
+        packageInfos.push(PackageInfo(6 * 10**18, 4 * 10**18));
+        packageInfos.push(PackageInfo(9 * 10**18, 6 * 10**18));
+        packageInfos.push(PackageInfo(15 * 10**18, 10 * 10**18));
+        packageInfos.push(PackageInfo(30 * 10**18, 20 * 10**18));
+        packageInfos.push(PackageInfo(60 * 10**18, 40 * 10**18));
+        packageInfos.push(PackageInfo(110 * 10**18, 90 * 10**18));
+        packageInfos.push(PackageInfo(220 * 10**18, 180 * 10**18));
+        packageInfos.push(PackageInfo(400 * 10**18, 400 * 10**18));
+        packageInfos.push(PackageInfo(800 * 10**18, 800 * 10**18));
+        packageInfos.push(PackageInfo(1400 * 10**18, 1600 * 10**18));
+        packageInfos.push(PackageInfo(2100 * 10**18, 2900 * 10**18));
 
         upline1 = payable(owner());
         upline2 = payable(owner());
@@ -96,6 +98,12 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
         upline4 = payable(owner());
         upline5 = payable(owner());
     }
+
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
+    {}
 
     function setRegistration(address _registrationAddress) external onlyOwner {
         registration = RegistrationInterface(_registrationAddress);
@@ -107,6 +115,10 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
 
     function setUSDT(address _usdtToken) external onlyOwner {
         usdtToken = IERC20(_usdtToken);
+    }
+
+    function setProMatrix(address payable _pro) external onlyOwner {
+        power_matrix = Power_Matrix(_pro);
     }
 
     // Function to fetch user information from Registration contract
@@ -138,7 +150,7 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
 
         // Iterate through uplines until 5 qualified uplines are found or until the user's package index is greater than or equal to the upline's package index
         while (userUpline != address(0) && qualifiedUplinesFound < 5) {
-            if (userPackages[userUpline] >= packageIndex) {
+            if (globalUserPackages[userUpline] >= packageIndex) {
                 qualifiedUplinesFound++;
 
                 if (qualifiedUplinesFound == 1) {
@@ -157,7 +169,8 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
             // Move up to the next referrer
             address referrer = getUserInfo(userUpline).referrer;
             while (
-                referrer != address(0) && userPackages[referrer] < packageIndex
+                referrer != address(0) &&
+                globalUserPackages[referrer] < packageIndex
             ) {
                 referrer = getUserInfo(referrer).referrer;
             }
@@ -191,8 +204,8 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
         }
     }
 
-    function distribute2USDT() internal {
-        uint256 usdtToDistribute = 2 * 10**18; // 2 USDT
+    function distributeLevelUSDT(uint256 packageIndex) internal {
+        uint256 usdtToDistribute = packageInfos[packageIndex].levelIncome;
 
         usdtToken.transfer(
             upline1,
@@ -252,14 +265,14 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
     function ownerBuysAllPackages() external onlyOwner {
         require(emptyPos == 0);
         // Iterate through all packages and purchase them for the owner
-        for (uint256 i = 1; i < packagePrices.length; i++) {
+        for (uint256 i = 1; i < packageInfos.length; i++) {
             currentEmptyPos[i] = emptyPos;
             // Update user's package index
-            userPackages[owner()] = i;
+            globalUserPackages[owner()] = i;
             users[i][currentEmptyPos[i]] = owner();
             uplineOne[i][owner()] = address(0);
             uplineTwo[i][owner()] = address(0);
-            uint256 packagePrice = packagePrices[i];
+            uint256 packagePrice = packageInfos[i].packagePrice;
 
             currentEmptyPos[i] += 1;
 
@@ -281,12 +294,12 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
         }
     }
 
-    function globalPurchase(uint256 packageIndex) external {
+    function globalPurchase(uint256 packageIndex) public {
         require(
-            packageIndex > 0 && packageIndex < packagePrices.length,
+            packageIndex > 0 && packageIndex < packageInfos.length,
             "Invalid package index"
         );
-        uint256 currentPackageIndex = userPackages[msg.sender];
+        uint256 currentPackageIndex = globalUserPackages[msg.sender];
         require(
             packageIndex == currentPackageIndex + 1,
             "Purchase packages sequentially"
@@ -297,13 +310,17 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
             users[packageIndex][currentEmptyPos[packageIndex]] == address(0),
             "Position is not empty"
         );
+        require(
+            1 <= power_matrix.userPackages(user),
+            "Need to buy atleast 1 package in Power Matrix"
+        );
 
         address referrer = getUserInfo(user).referrer;
 
-        uint256 packagePrice = packagePrices[packageIndex];
+        uint256 packagePrice = packageInfos[packageIndex].packagePrice;
         uint256 remainingAmount = packagePrice - 2 * 10**18;
         uint256 amountToDistribute = remainingAmount / 2;
-        userPackages[user] = packageIndex;
+        globalUserPackages[user] = packageIndex;
         packageInd = packageIndex;
 
         usdtToken.approve(address(this), packagePrice);
@@ -318,7 +335,7 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
         ) {
             uplineOne[packageIndex][user] = users[packageIndex][0];
             updateAndSetDistributionAddresses(referrer, packageIndex);
-            distribute2USDT();
+            distributeLevelUSDT(packageIndex);
             usdtToken.transfer(
                 uplineOne[packageIndex][user],
                 amountToDistribute
@@ -348,7 +365,7 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
             uplineOne[packageIndex][user] = users[packageIndex][1];
             uplineTwo[packageIndex][user] = users[packageIndex][0];
             updateAndSetDistributionAddresses(referrer, packageIndex);
-            distribute2USDT();
+            distributeLevelUSDT(packageIndex);
             usdtToken.transfer(
                 uplineOne[packageIndex][user],
                 amountToDistribute
@@ -376,7 +393,7 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
             uplineOne[packageIndex][user] = users[packageIndex][1];
             uplineTwo[packageIndex][user] = users[packageIndex][0];
             updateAndSetDistributionAddresses(referrer, packageIndex);
-            distribute2USDT();
+            distributeLevelUSDT(packageIndex);
             usdtToken.transfer(
                 uplineOne[packageIndex][user],
                 amountToDistribute
@@ -411,7 +428,7 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
             uplineOne[packageIndex][user] = users[packageIndex][2];
             uplineTwo[packageIndex][user] = users[packageIndex][0];
             updateAndSetDistributionAddresses(referrer, packageIndex);
-            distribute2USDT();
+            distributeLevelUSDT(packageIndex);
             usdtToken.transfer(
                 uplineOne[packageIndex][user],
                 amountToDistribute
@@ -437,13 +454,12 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
                 users[packageInd][2],
                 users[packageInd][0]
             );
-ā
             return;
         } else if (currentEmptyPos[packageIndex] == 10) {
             uplineOne[packageIndex][user] = users[packageIndex][3];
             uplineTwo[packageIndex][user] = users[packageIndex][0];
             updateAndSetDistributionAddresses(referrer, packageIndex);
-            distribute2USDT();
+            distributeLevelUSDT(packageIndex);
 
             usdtToken.transfer(
                 uplineOne[packageIndex][user],
@@ -475,7 +491,7 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
             uplineOne[packageIndex][user] = users[packageIndex][3];
             uplineTwo[packageIndex][user] = users[packageIndex][0];
             updateAndSetDistributionAddresses(referrer, packageIndex);
-            distribute2USDT();
+            distributeLevelUSDT(packageIndex);
 
             usdtToken.transfer(
                 uplineOne[packageIndex][user],
@@ -505,7 +521,7 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
 
             uplineOne[packageIndex][user] = users[packageIndex][uplinePos];
             updateAndSetDistributionAddresses(referrer, packageIndex);
-            distribute2USDT();
+            distributeLevelUSDT(packageIndex);
 
             usdtToken.transfer(
                 uplineOne[packageIndex][user],
@@ -642,7 +658,328 @@ contract Pro_Power_Global is Initializable, OwnableUpgradeable {
         }
     }
 
-    function withdrawUSDT(uint256 amount) public onlyOwner {
+    function provideGlobalPurchase(uint256 packageIndex, address user) public {
+        require(
+            packageIndex > 0 && packageIndex < packageInfos.length,
+            "Invalid package index"
+        );
+
+        User = user;
+        uint256 currentPackageIndex = globalUserPackages[user];
+        require(
+            packageIndex == currentPackageIndex + 1,
+            "Purchase packages sequentially"
+        );
+
+        require(getUserInfo(user).isRegistered, "Not registered");
+        require(
+            users[packageIndex][currentEmptyPos[packageIndex]] == address(0),
+            "Position is not empty"
+        );
+
+        address referrer = getUserInfo(user).referrer;
+
+        uint256 packagePrice = packageInfos[packageIndex].packagePrice;
+
+        globalUserPackages[user] = packageIndex;
+        packageInd = packageIndex;
+
+        users[packageIndex][currentEmptyPos[packageIndex]] = user;
+
+        if (
+            currentEmptyPos[packageIndex] == 1 ||
+            currentEmptyPos[packageIndex] == 2 ||
+            currentEmptyPos[packageIndex] == 3
+        ) {
+            uplineOne[packageIndex][user] = users[packageIndex][0];
+            updateAndSetDistributionAddresses(referrer, packageIndex);
+            currentEmptyPos[packageIndex] += 1;
+
+            emit PackagePurchased(
+                user,
+                packageIndex,
+                packagePrice,
+                upline1,
+                upline2,
+                upline3,
+                upline4,
+                upline5,
+                false,
+                false,
+                false,
+                owner(),
+                address(0)
+            );
+            return;
+        } else if (
+            currentEmptyPos[packageIndex] == 4 ||
+            currentEmptyPos[packageIndex] == 5
+        ) {
+            uplineOne[packageIndex][user] = users[packageIndex][1];
+            uplineTwo[packageIndex][user] = users[packageIndex][0];
+            updateAndSetDistributionAddresses(referrer, packageIndex);
+
+            currentEmptyPos[packageIndex] += 1;
+
+            emit PackagePurchased(
+                user,
+                packageIndex,
+                packagePrice,
+                upline1,
+                upline2,
+                upline3,
+                upline4,
+                upline5,
+                true,
+                false,
+                false,
+                users[packageInd][1],
+                users[packageInd][0]
+            );
+            return;
+        } else if (currentEmptyPos[packageIndex] == 6) {
+            uplineOne[packageIndex][user] = users[packageIndex][1];
+            uplineTwo[packageIndex][user] = users[packageIndex][0];
+            updateAndSetDistributionAddresses(referrer, packageIndex);
+
+            currentEmptyPos[packageIndex] += 1;
+
+            emit PackagePurchased(
+                user,
+                packageIndex,
+                packagePrice,
+                upline1,
+                upline2,
+                upline3,
+                upline4,
+                upline5,
+                false,
+                false,
+                false,
+                users[packageInd][1],
+                users[packageInd][0]
+            );
+            return;
+        } else if (
+            currentEmptyPos[packageIndex] == 7 ||
+            currentEmptyPos[packageIndex] == 8 ||
+            currentEmptyPos[packageIndex] == 9
+        ) {
+            uplineOne[packageIndex][user] = users[packageIndex][2];
+            uplineTwo[packageIndex][user] = users[packageIndex][0];
+            updateAndSetDistributionAddresses(referrer, packageIndex);
+
+            currentEmptyPos[packageIndex] += 1;
+
+            emit PackagePurchased(
+                user,
+                packageIndex,
+                packagePrice,
+                upline1,
+                upline2,
+                upline3,
+                upline4,
+                upline5,
+                false,
+                false,
+                false,
+                users[packageInd][2],
+                users[packageInd][0]
+            );
+            return;
+        } else if (currentEmptyPos[packageIndex] == 10) {
+            uplineOne[packageIndex][user] = users[packageIndex][3];
+            uplineTwo[packageIndex][user] = users[packageIndex][0];
+            updateAndSetDistributionAddresses(referrer, packageIndex);
+
+            currentEmptyPos[packageIndex] += 1;
+
+            emit PackagePurchased(
+                user,
+                packageIndex,
+                packagePrice,
+                upline1,
+                upline2,
+                upline3,
+                upline4,
+                upline5,
+                false,
+                false,
+                false,
+                users[packageInd][3],
+                users[packageInd][0]
+            );
+            return;
+        } else if (currentEmptyPos[packageIndex] == 11) {
+            uplineOne[packageIndex][user] = users[packageIndex][3];
+            uplineTwo[packageIndex][user] = users[packageIndex][0];
+            updateAndSetDistributionAddresses(referrer, packageIndex);
+
+            currentEmptyPos[packageIndex] += 1;
+
+            emit PackagePurchased(
+                user,
+                packageIndex,
+                packagePrice,
+                upline1,
+                upline2,
+                upline3,
+                upline4,
+                upline5,
+                false,
+                true,
+                false,
+                users[packageInd][3],
+                users[packageInd][0]
+            );
+            return;
+        } else {
+            uint256 uplinePos = findUpline(currentEmptyPos[packageIndex]);
+            uplineOne[packageIndex][user] = users[packageIndex][uplinePos];
+            updateAndSetDistributionAddresses(referrer, packageIndex);
+
+            uint256 pos = currentEmptyPos[packageIndex];
+            if (isRecyclePos11(pos)) {
+                currentEmptyPos[packageIndex] += 1;
+                uplineTwo[packageIndex][user] = uplineOne[packageIndex][
+                    users[packageIndex][uplinePos]
+                ];
+
+                emit PackagePurchased(
+                    user,
+                    packageIndex,
+                    packagePrice,
+                    upline1,
+                    upline2,
+                    upline3,
+                    upline4,
+                    upline5,
+                    false,
+                    true,
+                    false,
+                    uplineOne[packageInd][User],
+                    uplineTwo[packageInd][User]
+                );
+            } else if (isRecyclePos12(pos)) {
+                currentEmptyPos[packageIndex] += 1;
+                uplineTwo[packageIndex][user] = uplineOne[packageIndex][
+                    users[packageIndex][uplinePos]
+                ];
+
+                currentEmptyPos[packageIndex] += 1;
+                uint256 uplinePosRecycle = findUpline(
+                    currentEmptyPos[packageIndex]
+                );
+                address structureUpline2 = uplineTwo[packageIndex][user];
+                uplineOne[packageIndex][structureUpline2] = users[packageIndex][
+                    uplinePosRecycle
+                ];
+                uplineTwo[packageIndex][structureUpline2] = uplineOne[
+                    packageIndex
+                ][uplineOne[packageIndex][structureUpline2]];
+
+                emit PackagePurchased(
+                    user,
+                    packageIndex,
+                    packagePrice,
+                    upline1,
+                    upline2,
+                    upline3,
+                    upline4,
+                    upline5,
+                    false,
+                    false,
+                    true,
+                    uplineOne[packageInd][User],
+                    uplineTwo[packageInd][User]
+                );
+
+                emit PackagePurchased(
+                    structureUpline2,
+                    packageIndex,
+                    packagePrice,
+                    upline1,
+                    upline2,
+                    upline3,
+                    upline4,
+                    upline5,
+                    true,
+                    false,
+                    false,
+                    uplineOne[packageInd][structureUpline2],
+                    uplineTwo[packageInd][structureUpline2]
+                );
+            } else if (isRoyalty(pos)) {
+                currentEmptyPos[packageIndex] += 1;
+                uplineTwo[packageIndex][user] = uplineOne[packageIndex][
+                    users[packageIndex][uplinePos]
+                ];
+
+                emit PackagePurchased(
+                    user,
+                    packageIndex,
+                    packagePrice,
+                    upline1,
+                    upline2,
+                    upline3,
+                    upline4,
+                    upline5,
+                    true,
+                    false,
+                    false,
+                    uplineOne[packageInd][User],
+                    uplineTwo[packageInd][User]
+                );
+            } else {
+                currentEmptyPos[packageIndex] += 1;
+                uplineTwo[packageIndex][user] = uplineOne[packageIndex][
+                    users[packageIndex][uplinePos]
+                ];
+
+                emit PackagePurchased(
+                    user,
+                    packageIndex,
+                    packagePrice,
+                    upline1,
+                    upline2,
+                    upline3,
+                    upline4,
+                    upline5,
+                    false,
+                    false,
+                    false,
+                    uplineOne[packageInd][User],
+                    uplineTwo[packageInd][User]
+                );
+            }
+        }
+    }
+
+    function provideGlobalPackagesBulk(
+        uint256 endPackageIndex,
+        address[] calldata users
+    ) external onlyOwner {
+        uint256 startPackageIndex;
+        for (uint256 j = 0; j < users.length; j++) {
+            startPackageIndex = globalUserPackages[users[j]] + 1;
+            require(
+                startPackageIndex > 0 &&
+                    endPackageIndex < packageInfos.length &&
+                    startPackageIndex <= endPackageIndex,
+                "Invalid package indexes"
+            );
+
+            for (uint256 i = startPackageIndex; i <= endPackageIndex; i++) {
+                provideGlobalPurchase(i, users[j]);
+            }
+        }
+    }
+
+    function withdrawGlobalUSDT(uint256 amount) public onlyOwner {
         usdtToken.transfer(owner(), amount);
+    }
+
+    function getGlobalUSDTBalance() external view onlyOwner returns (uint256) {
+        return usdtToken.balanceOf(address(this));
     }
 }
