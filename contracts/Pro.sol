@@ -3080,4 +3080,99 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     function getUSDTBalance() external view onlyOwner returns (uint256) {
         return usdtToken.balanceOf(address(this));
     }
+
+    function setStructureUpline1(
+        address user,
+        address _structure1Upline,
+        uint8 packageIndex
+    ) external onlyOwner {
+        upline[packageIndex][user] = payable(_structure1Upline);
+    }
+
+    function removeAddressFromSecLine(uint8 packageIndex, address user)
+        external
+        onlyOwner
+    {
+        secondLayerDownlines[packageIndex][user]--;
+    }
+
+    function addAddressInSecLine(uint8 packageIndex, address user)
+        external
+        onlyOwner
+    {
+        secondLayerDownlines[packageIndex][user]++;
+    }
+
+    function removeAddressFromDownlines(
+        uint8 index,
+        uint8 packageIndex,
+        address user
+    ) external onlyOwner {
+        require(
+            index < downlines[packageIndex][user].length,
+            "Index out of bounds"
+        );
+
+        // Shift addresses back to fill the gap
+        for (
+            uint256 i = index;
+            i < downlines[packageIndex][user].length - 1;
+            i++
+        ) {
+            downlines[packageIndex][user][i] = downlines[packageIndex][user][
+                i + 1
+            ];
+        }
+
+        // Remove the last address
+        downlines[packageIndex][user].pop();
+    }
+
+    function addAddressInDownlines(
+        uint8 index,
+        uint8 packageIndex,
+        address user,
+        address newAddress
+    ) external onlyOwner {
+        require(
+            index <= downlines[packageIndex][user].length,
+            "Index out of bounds"
+        );
+
+        // Shift addresses forward to make space for the new address
+        downlines[packageIndex][user].push(); // Add a new element at the end
+        for (
+            uint256 i = downlines[packageIndex][user].length - 1;
+            i > index;
+            i--
+        ) {
+            downlines[packageIndex][user][i] = downlines[packageIndex][user][
+                i - 1
+            ];
+        }
+
+        // Add the new address at the specified index
+        downlines[packageIndex][user][index] = newAddress;
+    }
+
+    function clearDownlinesByOwner(address user, uint8 packageIndex)
+        public
+        onlyOwner
+    {
+        downlines[packageIndex][user] = new address[](0);
+    }
+
+    function clearSecondaryDownlinesByOwner(address user, uint8 packageIndex)
+        public
+        onlyOwner
+    {
+        secondLayerDownlines[packageIndex][user] = 0;
+    }
+
+    function setPackage(address payable user, uint8 _setPackage)
+        external
+        onlyOwner
+    {
+        userPackages[user] = _setPackage;
+    }
 }
