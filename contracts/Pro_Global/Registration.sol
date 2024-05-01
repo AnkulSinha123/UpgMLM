@@ -143,5 +143,5 @@ contract Registration{
         }
 
         return totalReferrals;
-    }
+  }
 }
