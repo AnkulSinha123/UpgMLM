@@ -1,26 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "./Registration.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-
-
-interface RegistrationInterface {
-    struct UserInfo {
-        address referrer;
-        address[] referrals;
-        bool isRegistered;
-        string userUniqueId;
-    }
-
-    function getUserInfo(address _address)
-        external
-        view
-        returns (UserInfo memory);
-}
 
 contract Pro_Power_Global is
     Initializable,
@@ -42,13 +27,6 @@ contract Pro_Power_Global is
     }
 
     PackageInfo[] public packageInfos;
-
-    struct UserInfo {
-        address referrer;
-        address[] referrals;
-        bool isRegistered;
-        string userUniqueId;
-    }
 
     event PackagePurchased(
         address indexed user,
@@ -75,7 +53,7 @@ contract Pro_Power_Global is
 
     IERC20 public usdtToken;
     address payable public RoyaltyContract;
-    RegistrationInterface public registration;
+    Registration public registration;
 
     // Constants for distribution percentages
     uint256 private constant upline1_PERCENTAGE = 50;
@@ -118,7 +96,7 @@ contract Pro_Power_Global is
     {}
 
     function setRegistration(address _registrationAddress) external onlyOwner {
-        registration = RegistrationInterface(_registrationAddress);
+        registration = Registration(_registrationAddress);
     }
 
     function setRoyalty(address _royalty) external onlyOwner {
@@ -127,25 +105,6 @@ contract Pro_Power_Global is
 
     function setUSDT(address _usdtToken) external onlyOwner {
         usdtToken = IERC20(_usdtToken);
-    }
-
-    // Function to fetch user information from Registration contract
-    function getUserInfo(address user) public view returns (UserInfo memory) {
-        // Call the getUserInfo function from Registration contract
-        RegistrationInterface registration = RegistrationInterface(
-            registration
-        );
-        RegistrationInterface.UserInfo memory userInfoInterface = registration
-            .getUserInfo(user);
-
-        // Convert the returned UserInfo from Registration contract to local UserInfo struct
-        UserInfo memory userInfo;
-        userInfo.referrer = userInfoInterface.referrer;
-        userInfo.referrals = userInfoInterface.referrals;
-        userInfo.isRegistered = userInfoInterface.isRegistered;
-        userInfo.userUniqueId = userInfoInterface.userUniqueId;
-
-        return userInfo;
     }
 
     function updateAndSetDistributionAddresses(
@@ -175,12 +134,12 @@ contract Pro_Power_Global is
             }
 
             // Move up to the next referrer
-            address referrer = getUserInfo(userUpline).referrer;
+            address referrer = registration.getUserInfo(userUpline).referrer;
             while (
                 referrer != address(0) &&
                 globalUserPackages[referrer] < packageIndex
             ) {
-                referrer = getUserInfo(referrer).referrer;
+                referrer = registration.getUserInfo(referrer).referrer;
             }
 
             if (referrer == address(0)) {
@@ -313,13 +272,13 @@ contract Pro_Power_Global is
             "Purchase packages sequentially"
         );
         address user = msg.sender;
-        require(getUserInfo(user).isRegistered, "Not registered");
+        require(registration.getUserInfo(user).isRegistered, "Not registered");
         require(
             users[packageIndex][currentEmptyPos[packageIndex]] == address(0),
             "Position is not empty"
         );
 
-        address referrer = getUserInfo(user).referrer;
+        address referrer = registration.getUserInfo(user).referrer;
 
         uint256 packagePrice = packageInfos[packageIndex].packagePrice;
         uint256 remainingAmount = packageInfos[packageIndex].packagePrice -
@@ -692,13 +651,13 @@ contract Pro_Power_Global is
             "Purchase packages sequentially"
         );
 
-        require(getUserInfo(user).isRegistered, "Not registered");
+        require(registration.getUserInfo(user).isRegistered, "Not registered");
         require(
             users[packageIndex][currentEmptyPos[packageIndex]] == address(0),
             "Position is not empty"
         );
 
-        address referrer = getUserInfo(user).referrer;
+        address referrer = registration.getUserInfo(user).referrer;
 
         uint256 packagePrice = packageInfos[packageIndex].packagePrice;
 
@@ -992,11 +951,11 @@ contract Pro_Power_Global is
 
     function provideGlobalPackagesBulk(
         uint256 endPackageIndex,
-        address[] calldata users
+        address[] calldata userlist
     ) external onlyOwner {
         uint256 startPackageIndex;
-        for (uint256 j = 0; j < users.length; j++) {
-            startPackageIndex = globalUserPackages[users[j]] + 1;
+        for (uint256 j = 0; j < userlist.length; j++) {
+            startPackageIndex = globalUserPackages[userlist[j]] + 1;
             require(
                 startPackageIndex > 0 &&
                     endPackageIndex < packageInfos.length &&
@@ -1005,7 +964,7 @@ contract Pro_Power_Global is
             );
 
             for (uint256 i = startPackageIndex; i <= endPackageIndex; i++) {
-                provideGlobalPurchase(i, users[j]);
+                provideGlobalPurchase(i, userlist[j]);
             }
         }
     }
