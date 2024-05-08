@@ -1,4 +1,12 @@
 /**
+ *Submitted for verification at BscScan.com on 2024-04-23
+ */
+
+/**
+ *Submitted for verification at BscScan.com on 2024-03-22
+ */
+
+/**
  *Submitted for verification at BscScan.com on 2024-03-17
  */
 
@@ -3472,24 +3480,23 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                 i++
             ) {
                 address downlineAddress = downlines[packageIndex][upline1][i];
-                if (downlineAddress != address(0)) {
-                    if (downlines[packageIndex][downlineAddress].length < 4) {
-                        downlines[packageIndex][downlineAddress].push(
-                            msg.sender
-                        );
-                        upline[packageIndex][msg.sender] = downlineAddress;
-                        structureUpline1 = payable(downlineAddress);
-                        structureUpline2 = payable(
-                            upline[packageIndex][downlineAddress]
-                        );
 
-                        if (downlineAddress != owner()) {
-                            secondLayerDownlines[packageIndex][
-                                structureUpline2
-                            ]++;
-                        }
-                        break;
+                if (downlineAddress == address(0)) {
+                    continue;
+                }
+
+                if (downlines[packageIndex][downlineAddress].length < 4) {
+                    downlines[packageIndex][downlineAddress].push(msg.sender);
+                    upline[packageIndex][msg.sender] = downlineAddress;
+                    structureUpline1 = payable(downlineAddress);
+                    structureUpline2 = payable(
+                        upline[packageIndex][downlineAddress]
+                    );
+
+                    if (downlineAddress != owner()) {
+                        secondLayerDownlines[packageIndex][structureUpline2]++;
                     }
+                    break;
                 }
             }
         }
@@ -3661,6 +3668,13 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                     );
                 }
             } else {
+                clearDownlines(
+                    structureUpline2,
+                    UplineOfStructure2,
+                    packageIndex
+                );
+                clearSecondLayerDownlines(structureUpline2, packageIndex);
+
                 for (
                     uint256 i = 0;
                     i < downlines[packageIndex][newUpline].length;
@@ -3669,134 +3683,118 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                     address downlineOfnewUplineOfStructure2 = downlines[
                         packageIndex
                     ][newUpline][i];
-                    if (downlineOfnewUplineOfStructure2 != address(0)) {
-                        if (
-                            downlines[packageIndex][
-                                downlineOfnewUplineOfStructure2
-                            ].length < 4
-                        ) {
-                            downlines[packageIndex][
-                                downlineOfnewUplineOfStructure2
-                            ].push(structureUpline2);
-                            upline[packageIndex][
-                                structureUpline2
-                            ] = downlineOfnewUplineOfStructure2;
-                            uplineToUplineOFStructureUpline2 = payable(
-                                upline[packageIndex][
-                                    downlineOfnewUplineOfStructure2
-                                ]
-                            );
 
-                            if (downlineOfnewUplineOfStructure2 != owner()) {
-                                secondLayerDownlines[packageIndex][newUpline]++;
-                            }
-                            usdtToken.transfer(
+                    if (downlineOfnewUplineOfStructure2 == address(0)) {
+                        continue;
+                    }
+
+                    if (
+                        downlines[packageIndex][downlineOfnewUplineOfStructure2]
+                            .length < 4
+                    ) {
+                        downlines[packageIndex][downlineOfnewUplineOfStructure2]
+                            .push(structureUpline2);
+
+                        upline[packageIndex][
+                            structureUpline2
+                        ] = downlineOfnewUplineOfStructure2;
+
+                        uplineToUplineOFStructureUpline2 = payable(
+                            upline[packageIndex][
+                                downlineOfnewUplineOfStructure2
+                            ]
+                        );
+
+                        if (downlineOfnewUplineOfStructure2 != owner()) {
+                            secondLayerDownlines[packageIndex][newUpline]++;
+                        }
+                        usdtToken.transfer(
+                            downlineOfnewUplineOfStructure2,
+                            remaining / 2
+                        );
+
+                        uint256 secondaryLine = secondLayerDownlines[
+                            packageIndex
+                        ][newUpline];
+
+                        if (secondaryLine >= 1 && secondaryLine <= 3) {
+                            usdtToken.transfer(RoyaltyContract, remaining / 2);
+
+                            emit PackagePurchased(
+                                structureUpline2,
+                                packageIndex,
+                                packagePrice,
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                true,
+                                false,
+                                false,
                                 downlineOfnewUplineOfStructure2,
+                                uplineToUplineOFStructureUpline2
+                            );
+                        } else if (secondaryLine >= 4 && secondaryLine <= 14) {
+                            usdtToken.transfer(
+                                uplineToUplineOFStructureUpline2,
                                 remaining / 2
                             );
 
-                            clearDownlines(
+                            emit PackagePurchased(
                                 structureUpline2,
-                                UplineOfStructure2,
-                                packageIndex
+                                packageIndex,
+                                packagePrice,
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                false,
+                                false,
+                                false,
+                                downlineOfnewUplineOfStructure2,
+                                uplineToUplineOFStructureUpline2
                             );
-                            clearSecondLayerDownlines(
+                        } else if (secondaryLine == 15) {
+                            emit PackagePurchased(
                                 structureUpline2,
-                                packageIndex
+                                packageIndex,
+                                packagePrice,
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                false,
+                                true,
+                                false,
+                                downlineOfnewUplineOfStructure2,
+                                uplineToUplineOFStructureUpline2
                             );
-
-                            uint256 secondaryLine = secondLayerDownlines[
-                                packageIndex
-                            ][newUpline];
-
-                            recycleUplineToUplineOFStructureUpline2 = payable(
-                                newUpline
+                        } else if (secondaryLine == 16) {
+                            emit PackagePurchased(
+                                structureUpline2,
+                                packageIndex,
+                                packagePrice,
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                false,
+                                false,
+                                true,
+                                downlineOfnewUplineOfStructure2,
+                                uplineToUplineOFStructureUpline2
                             );
-
-                            if (secondaryLine >= 1 && secondaryLine <= 3) {
-                                usdtToken.transfer(
-                                    RoyaltyContract,
-                                    remaining / 2
-                                );
-
-                                emit PackagePurchased(
-                                    structureUpline2,
-                                    packageIndex,
-                                    packagePrice,
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    true,
-                                    false,
-                                    false,
-                                    downlineOfnewUplineOfStructure2,
-                                    recycleUplineToUplineOFStructureUpline2
-                                );
-                            } else if (
-                                secondaryLine >= 4 && secondaryLine <= 14
-                            ) {
-                                usdtToken.transfer(
-                                    recycleUplineToUplineOFStructureUpline2,
-                                    remaining / 2
-                                );
-
-                                emit PackagePurchased(
-                                    structureUpline2,
-                                    packageIndex,
-                                    packagePrice,
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    false,
-                                    false,
-                                    false,
-                                    downlineOfnewUplineOfStructure2,
-                                    recycleUplineToUplineOFStructureUpline2
-                                );
-                            } else if (secondaryLine == 15) {
-                                emit PackagePurchased(
-                                    structureUpline2,
-                                    packageIndex,
-                                    packagePrice,
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    false,
-                                    true,
-                                    false,
-                                    downlineOfnewUplineOfStructure2,
-                                    recycleUplineToUplineOFStructureUpline2
-                                );
-                            } else if (secondaryLine == 16) {
-                                emit PackagePurchased(
-                                    structureUpline2,
-                                    packageIndex,
-                                    packagePrice,
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    false,
-                                    false,
-                                    true,
-                                    downlineOfnewUplineOfStructure2,
-                                    recycleUplineToUplineOFStructureUpline2
-                                );
-                                recycleProcess(
-                                    packageIndex,
-                                    remaining,
-                                    recycleUplineToUplineOFStructureUpline2
-                                );
-                            }
-                            break;
+                            recycleProcess(
+                                packageIndex,
+                                remaining,
+                                uplineToUplineOFStructureUpline2
+                            );
                         }
+                        break;
                     }
                 }
             }
@@ -4242,6 +4240,13 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                     );
                 }
             } else {
+                clearDownlines(
+                    structureUpline2,
+                    UplineOfStructure2,
+                    packageIndex
+                );
+                clearSecondLayerDownlines(structureUpline2, packageIndex);
+
                 for (
                     uint256 i = 0;
                     i < downlines[packageIndex][newUpline].length;
@@ -4250,117 +4255,105 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                     address downlineOfNewUpline = downlines[packageIndex][
                         newUpline
                     ][i];
-                    if (downlineOfNewUpline != address(0)) {
-                        if (
-                            downlines[packageIndex][downlineOfNewUpline]
-                                .length < 4
-                        ) {
-                            downlines[packageIndex][downlineOfNewUpline].push(
-                                structureUpline2
-                            );
-                            upline[packageIndex][
-                                structureUpline2
-                            ] = downlineOfNewUpline;
-                            newUpllineOfUplineStructure2 = payable(
-                                upline[packageIndex][downlineOfNewUpline]
-                            );
+                    if (downlineOfNewUpline == address(0)) {
+                        continue;
+                    }
+                    if (
+                        downlines[packageIndex][downlineOfNewUpline].length < 4
+                    ) {
+                        downlines[packageIndex][downlineOfNewUpline].push(
+                            structureUpline2
+                        );
+                        upline[packageIndex][
+                            structureUpline2
+                        ] = downlineOfNewUpline;
+                        newUpllineOfUplineStructure2 = payable(
+                            upline[packageIndex][downlineOfNewUpline]
+                        );
 
-                            if (downlineOfNewUpline != owner()) {
-                                secondLayerDownlines[packageIndex][newUpline]++;
-                            }
-
-                            clearDownlines(
-                                structureUpline2,
-                                UplineOfStructure2,
-                                packageIndex
-                            );
-                            clearSecondLayerDownlines(
-                                structureUpline2,
-                                packageIndex
-                            );
-
-                            uint256 secondaryLine = secondLayerDownlines[
-                                packageIndex
-                            ][newUpline];
-
-                            recycleUplineToUplineOFStructureUpline2 = payable(
-                                newUpline
-                            );
-
-                            if (secondaryLine >= 1 && secondaryLine <= 3) {
-                                emit PackagePurchased(
-                                    structureUpline2,
-                                    packageIndex,
-                                    packagePrice,
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    true,
-                                    false,
-                                    false,
-                                    downlineOfNewUpline,
-                                    recycleUplineToUplineOFStructureUpline2
-                                );
-                            } else if (
-                                secondaryLine >= 4 && secondaryLine <= 14
-                            ) {
-                                emit PackagePurchased(
-                                    structureUpline2,
-                                    packageIndex,
-                                    packagePrice,
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    false,
-                                    false,
-                                    false,
-                                    downlineOfNewUpline,
-                                    recycleUplineToUplineOFStructureUpline2
-                                );
-                            } else if (secondaryLine == 15) {
-                                emit PackagePurchased(
-                                    structureUpline2,
-                                    packageIndex,
-                                    packagePrice,
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    false,
-                                    true,
-                                    false,
-                                    downlineOfNewUpline,
-                                    recycleUplineToUplineOFStructureUpline2
-                                );
-                            } else if (secondaryLine == 16) {
-                                emit PackagePurchased(
-                                    structureUpline2,
-                                    packageIndex,
-                                    packagePrice,
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    address(0),
-                                    false,
-                                    false,
-                                    true,
-                                    downlineOfNewUpline,
-                                    recycleUplineToUplineOFStructureUpline2
-                                );
-                                recycleProvidePackage(
-                                    packageIndex,
-                                    recycleUplineToUplineOFStructureUpline2
-                                );
-                            }
-
-                            break;
+                        if (downlineOfNewUpline != owner()) {
+                            secondLayerDownlines[packageIndex][newUpline]++;
                         }
+
+                        uint256 secondaryLine = secondLayerDownlines[
+                            packageIndex
+                        ][newUpline];
+
+                        recycleUplineToUplineOFStructureUpline2 = payable(
+                            newUpline
+                        );
+
+                        if (secondaryLine >= 1 && secondaryLine <= 3) {
+                            emit PackagePurchased(
+                                structureUpline2,
+                                packageIndex,
+                                packagePrice,
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                true,
+                                false,
+                                false,
+                                downlineOfNewUpline,
+                                recycleUplineToUplineOFStructureUpline2
+                            );
+                        } else if (secondaryLine >= 4 && secondaryLine <= 14) {
+                            emit PackagePurchased(
+                                structureUpline2,
+                                packageIndex,
+                                packagePrice,
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                false,
+                                false,
+                                false,
+                                downlineOfNewUpline,
+                                recycleUplineToUplineOFStructureUpline2
+                            );
+                        } else if (secondaryLine == 15) {
+                            emit PackagePurchased(
+                                structureUpline2,
+                                packageIndex,
+                                packagePrice,
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                false,
+                                true,
+                                false,
+                                downlineOfNewUpline,
+                                recycleUplineToUplineOFStructureUpline2
+                            );
+                        } else if (secondaryLine == 16) {
+                            emit PackagePurchased(
+                                structureUpline2,
+                                packageIndex,
+                                packagePrice,
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                address(0),
+                                false,
+                                false,
+                                true,
+                                downlineOfNewUpline,
+                                recycleUplineToUplineOFStructureUpline2
+                            );
+                            recycleProvidePackage(
+                                packageIndex,
+                                recycleUplineToUplineOFStructureUpline2
+                            );
+                        }
+
+                        break;
                     }
                 }
             }
