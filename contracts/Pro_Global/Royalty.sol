@@ -1,27 +1,75 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-contract Royalty {
-    address public owner;
+interface IERC20 {
+    event Approval(
+        address indexed owner,
+        address indexed spender,
+        uint256 value
+    );
 
+    function totalSupply() external view returns (uint256);
+
+    function balanceOf(address account) external view returns (uint256);
+
+    function transfer(address to, uint256 value) external returns (bool);
+
+    function allowance(address owner, address spender)
+        external
+        view
+        returns (uint256);
+
+    function approve(address spender, uint256 value) external returns (bool);
+
+    function transferFrom(
+        address from,
+        address to,
+        uint256 value
+    ) external returns (bool);
+}
+
+contract MillionaireRoyalty is
+    Initializable,
+    OwnableUpgradeable,
+    UUPSUpgradeable
+{
     uint256 public marsDistAmount;
     uint256 public moonDistAmount;
     uint256 public saturnDistAmount;
     uint256 public sunDistAmount;
 
+    event withdrawal(address user, uint256 amount);
+
     IERC20 public usdtToken;
 
-    constructor() {
-        owner = msg.sender;
+    mapping(address => uint256) public balances;
+
+    function initialize(address initialOwner) public initializer {
+        __Ownable_init(initialOwner);
+        __UUPSUpgradeable_init();
     }
+
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
+    {}
 
     receive() external payable {}
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Not Owner");
-        _;
+    function checkBalance() external view returns (uint256) {
+        return balances[msg.sender];
+    }
+
+    function withdrawRoyalty() external {
+        uint256 amount = balances[msg.sender];
+        usdtToken.transfer(msg.sender, amount);
+
+        emit withdrawal(msg.sender, amount);
     }
 
     function setUSDT(address _usdtToken) external onlyOwner {
@@ -48,7 +96,7 @@ contract Royalty {
         uint256 amountPerRecipient = marsDistAmount / numRecipients;
 
         for (uint256 i = 0; i < numRecipients; i++) {
-            usdtToken.transfer(recipients[i], amountPerRecipient);
+            balances[recipients[i]] += amountPerRecipient;
         }
     }
 
@@ -58,7 +106,7 @@ contract Royalty {
         uint256 amountPerRecipient = moonDistAmount / numRecipients;
 
         for (uint256 i = 0; i < numRecipients; i++) {
-            usdtToken.transfer(recipients[i], amountPerRecipient);
+            balances[recipients[i]] += amountPerRecipient;
         }
     }
 
@@ -68,7 +116,7 @@ contract Royalty {
         uint256 amountPerRecipient = saturnDistAmount / numRecipients;
 
         for (uint256 i = 0; i < numRecipients; i++) {
-            usdtToken.transfer(recipients[i], amountPerRecipient);
+            balances[recipients[i]] += amountPerRecipient;
         }
     }
 
@@ -78,11 +126,15 @@ contract Royalty {
         uint256 amountPerRecipient = sunDistAmount / numRecipients;
 
         for (uint256 i = 0; i < numRecipients; i++) {
-            usdtToken.transfer(recipients[i], amountPerRecipient);
+            balances[recipients[i]] += amountPerRecipient;
         }
     }
 
     function withdrawUSDT(uint256 amount) public onlyOwner {
-        usdtToken.transfer(owner, amount);
+        usdtToken.transfer(owner(), amount);
+    }
+
+    function withdrawBNB(uint256 amount) external onlyOwner {
+        payable(owner()).transfer(amount);
     }
 }
