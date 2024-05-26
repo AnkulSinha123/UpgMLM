@@ -1,4 +1,12 @@
 /**
+ *Submitted for verification at BscScan.com on 2024-05-24
+*/
+
+/**
+ *Submitted for verification at BscScan.com on 2024-04-23
+ */
+
+/**
  *Submitted for verification at BscScan.com on 2024-03-22
  */
 
@@ -614,6 +622,14 @@ library ERC1967Utils {
         }
     }
 
+    function upgradeTo(address newImplementation)
+        internal
+    {
+        _setImplementation(newImplementation);
+        emit Upgraded(newImplementation);
+
+    }
+
     /**
      * @dev Storage slot with the admin of the contract.
      * This is the keccak-256 hash of "eip1967.proxy.admin" subtracted by 1.
@@ -1076,6 +1092,15 @@ abstract contract UUPSUpgradeable is Initializable, IERC1822Proxiable {
         _upgradeToAndCallUUPS(newImplementation, data);
     }
 
+    function upgradeTo(address newImplementation)
+        public
+        payable
+        virtual
+        onlyProxy
+    {
+       _upgradeToUUPS(newImplementation) ;
+    }
+
     /**
      * @dev Reverts if the execution is not performed via delegatecall or the execution
      * context is not of a proxy with an ERC1967-compliant implementation pointing to self.
@@ -1136,6 +1161,25 @@ abstract contract UUPSUpgradeable is Initializable, IERC1822Proxiable {
             revert ERC1967Utils.ERC1967InvalidImplementation(newImplementation);
         }
     }
+
+    function _upgradeToUUPS(address newImplementation)
+        private
+    {
+        try IERC1822Proxiable(newImplementation).proxiableUUID() returns (
+            bytes32 slot
+        ) {
+            if (slot != ERC1967Utils.IMPLEMENTATION_SLOT) {
+                revert UUPSUnsupportedProxiableUUID(slot);
+            }
+            ERC1967Utils.upgradeTo(newImplementation);
+        } catch {
+            // The implementation is not UUPS
+            revert ERC1967Utils.ERC1967InvalidImplementation(newImplementation);
+        }
+    }
+
+
+    
 }
 
 // File: @openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol
@@ -3270,16 +3314,6 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         Pro = Pro_Power_Matrix(_pro);
     }
 
-    function setPackage(address[] calldata users) external onlyOwner {
-        for (uint256 i = 0; i < users.length; i++) {
-            address user = users[i];
-            uint8 packageUser = uint8(Pro.userPackages(user));
-            if (packageUser != 0) {
-                userPackages[user] = packageUser;
-            }
-        }
-    }
-
     function getAllDownlines(uint256 packageIndex, address user)
         internal
         view
@@ -3323,37 +3357,6 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         }
         newArray[array.length] = element;
         return newArray;
-    }
-
-    function setUserUpline(address[] calldata users) external onlyOwner {
-        for (uint256 i = 0; i < users.length; i++) {
-            address user = users[i];
-
-            uint256 package = userPackages[user];
-
-            for (uint8 i = 1; i <= package; i++) {
-                address _structure1Upline = Pro.upline(i, user);
-                upline[i][user] = _structure1Upline;
-            }
-        }
-    }
-
-    function setDownlinesForUsers(address[] calldata users) external onlyOwner {
-        for (uint256 i = 0; i < users.length; i++) {
-            address user = users[i];
-            uint256 pack = userPackages[user];
-
-            for (uint8 j = 1; j <= pack; j++) {
-                address[] memory downline = getAllDownlines(j, user);
-                downlines[j][user] = downline;
-                if (downline.length != 0) {
-                    secondLayerDownlines[j][user] = getAllSecondaryDownlines(
-                        j,
-                        user
-                    );
-                }
-            }
-        }
     }
 
     function updateAndSetDistributionAddresses(
@@ -3476,24 +3479,23 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                 i++
             ) {
                 address downlineAddress = downlines[packageIndex][upline1][i];
-                if (downlineAddress != address(0)) {
-                    if (downlines[packageIndex][downlineAddress].length < 4) {
-                        downlines[packageIndex][downlineAddress].push(
-                            msg.sender
-                        );
-                        upline[packageIndex][msg.sender] = downlineAddress;
-                        structureUpline1 = payable(downlineAddress);
-                        structureUpline2 = payable(
-                            upline[packageIndex][downlineAddress]
-                        );
 
-                        if (downlineAddress != owner()) {
-                            secondLayerDownlines[packageIndex][
-                                structureUpline2
-                            ]++;
-                        }
-                        break;
+                if (downlineAddress == address(0)) {
+                    continue;
+                }
+
+                if (downlines[packageIndex][downlineAddress].length < 4) {
+                    downlines[packageIndex][downlineAddress].push(msg.sender);
+                    upline[packageIndex][msg.sender] = downlineAddress;
+                    structureUpline1 = payable(downlineAddress);
+                    structureUpline2 = payable(
+                        upline[packageIndex][downlineAddress]
+                    );
+
+                    if (downlineAddress != owner()) {
+                        secondLayerDownlines[packageIndex][structureUpline2]++;
                     }
+                    break;
                 }
             }
         }
@@ -3972,21 +3974,22 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                 j++
             ) {
                 address downlineAddress = downlines[packageIndex][upline1][j];
-                if (downlineAddress != address(0)) {
-                    if (downlines[packageIndex][downlineAddress].length < 4) {
-                        downlines[packageIndex][downlineAddress].push(user);
-                        upline[packageIndex][user] = downlineAddress;
-                        structureUpline1 = payable(downlineAddress);
-                        structureUpline2 = payable(
-                            upline[packageIndex][downlineAddress]
-                        );
-                        if (structureUpline1 != owner()) {
-                            secondLayerDownlines[packageIndex][
-                                structureUpline2
-                            ]++;
-                        }
-                        break;
+
+                if (downlineAddress == address(0)) {
+                    continue;
+                }
+
+                if (downlines[packageIndex][downlineAddress].length < 4) {
+                    downlines[packageIndex][downlineAddress].push(user);
+                    upline[packageIndex][user] = downlineAddress;
+                    structureUpline1 = payable(downlineAddress);
+                    structureUpline2 = payable(
+                        upline[packageIndex][downlineAddress]
+                    );
+                    if (structureUpline1 != owner()) {
+                        secondLayerDownlines[packageIndex][structureUpline2]++;
                     }
+                    break;
                 }
             }
         }
@@ -4464,4 +4467,10 @@ contract Power_Matrix is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     {
         userPackages[user] = _setPackage;
     }
+
+    function withdrawBNB(uint256 amount) external onlyOwner {
+        payable(owner()).transfer(amount);
+    }
+
+   
 }
