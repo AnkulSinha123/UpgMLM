@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -36,7 +36,7 @@ contract MetaProSpaceLuckyDraw is
         __UUPSUpgradeable_init();
 
         entryFee = 10 * 1e18; // 10 USD in wei (assuming 1 USD = 1 USDT)
-        maxParticipants = 10000;
+        maxParticipants = 5;
         totalDeposit = 0;
         totalDistribution = 100000 * 1e18; // 100,000 USD in wei
         withdrawFee = 10; // 10%
@@ -114,6 +114,8 @@ contract MetaProSpaceLuckyDraw is
         );
         require(!hasParticipated[msg.sender], "Already participated");
 
+        usdtToken.approve(address(this), entryFee);
+
         participants.push(msg.sender);
         hasParticipated[msg.sender] = true;
         totalDeposit += entryFee;
@@ -140,22 +142,18 @@ contract MetaProSpaceLuckyDraw is
         uint256 prize = prizeAmount[msg.sender];
         require(prize > 0, "No prize to withdraw");
 
+        uint256 fee = (prize * withdrawFee) / 100;
+        uint256 prizeAfterFee = prize - fee;
+
         prizeAmount[msg.sender] = 0;
-        usdtToken.transfer(msg.sender, prize);
 
-        emit PrizeWithdrawn(msg.sender, prize);
-    }
+        // Transfer the prize amount minus the fee to the participant
+        usdtToken.transfer(msg.sender, prizeAfterFee);
 
-    function withdraw() public onlyOwner {
-        uint256 balance = usdtToken.balanceOf(address(this));
-        require(balance > 0, "No funds to withdraw");
+        // Transfer the fee to the owner
+        usdtToken.transfer(owner(), fee);
 
-        uint256 fee = (balance * withdrawFee) / 100;
-        uint256 amountToWithdraw = balance - fee;
-
-        usdtToken.transfer(owner(), amountToWithdraw);
-
-        emit FundsWithdrawn(amountToWithdraw);
+        emit PrizeWithdrawn(msg.sender, prizeAfterFee);
     }
 
     function getParticipants() public view returns (address[] memory) {
@@ -177,6 +175,10 @@ contract MetaProSpaceLuckyDraw is
             array[i] = array[j];
             array[j] = temp;
         }
+    }
+
+    function withdrawUSDT(uint256 amount) public onlyOwner {
+        usdtToken.transfer(owner(), amount);
     }
 
     receive() external payable {}
