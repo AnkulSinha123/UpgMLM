@@ -36,7 +36,7 @@ contract MetaProSpaceLuckyDraw is
         __UUPSUpgradeable_init();
 
         entryFee = 10 * 1e18; // 10 USD in wei (assuming 1 USD = 1 USDT)
-        maxParticipants = 5;
+        maxParticipants = 10000;
         totalDeposit = 0;
         totalDistribution = 100000 * 1e18; // 100,000 USD in wei
         withdrawFee = 10; // 10%
